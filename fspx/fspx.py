@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # SPDX-License-Identifier: GPL-3.0-only
 
 import os
@@ -61,7 +59,7 @@ def importPaths(paths, dstore, prefix=""):
 
     # create dstore if not yet there
     if not os.path.exists(dstore):
-        os.mkdirs(dstore)
+        os.makedirs(dstore)
 
     # hash all paths
     for p in paths:
