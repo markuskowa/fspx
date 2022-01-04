@@ -7,8 +7,11 @@ import hashlib
 import json
 import sys
 
+# Default path for project files
 cfgPath = ".fspx/"
 
+# Path nix module files
+instDir = "nix/"
 
 def readJson(path):
     with open(path, "rb") as f:
@@ -303,7 +306,7 @@ def cmd_build(cfgnix):
         os.mkdir(cfgPath)
     except FileExistsError:
         None
-    ret = os.system("nix-build default.nix --arg config {} --out-link {}/cfg --show-trace".format(cfgnix, cfgPath))
+    ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
     return os.waitstatus_to_exitcode(ret)
 
 def cmd_list():
@@ -312,7 +315,7 @@ def cmd_list():
     for job in findAllJobs(config['jobsets']):
         print(job['name'])
 
-def cmd_check():
+def cmd_check(config):
     '''Check if job results are valid
     '''
 
@@ -326,7 +329,7 @@ def cmd_check():
 
     return jobs, valid
 
-def cmd_shell(jobname):
+def cmd_shell(config, jobname):
     '''Start a shell with job environment
     '''
     job = findJob(config['jobsets'], jobname)
@@ -425,61 +428,64 @@ def cmd_export(config, toDir, targetStore):
     print("Save job scripts to NAR archive...")
     allJobScripts =  collectJobScripts(config['jobsets'])
     os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
+
 #
 # Main
 #
-if len(sys.argv) < 2:
-    print("help")
+
+def main():
+    if len(sys.argv) < 2:
+        print("help")
+        exit(0)
+
+
+    argv = sys.argv[1:]
+
+    if argv[0] == "build":
+        ret = cmd_build(argv[1])
+        exit(ret)
+
+    config = readJson("{}/cfg/project.json".format(cfgPath))
+
+    if argv[0] == "list":
+        cmd_list()
+
+    elif argv[0] == "run":
+
+        if len(argv) == 1:
+            jobs, valid = checkJobset(config['jobsets'], config['dstore'], recalc=[])
+            if not valid:
+                runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
+        else:
+            runJobs(config['jobsets'], argv[1:], config['dstore'])
+
+    elif argv[0] == "check":
+        jobs, valid = cmd_check(config)
+        if not valid:
+            exit(1)
+
+
+    elif argv[0] == "shell":
+
+        if len(argv) != 2:
+            print("job name is missing")
+            exit(1)
+
+        cmd_shell(config, argv[1])
+
+
+    elif argv[0] == "export":
+        if not cmd_check():
+            print("Project data is not valid. Can not export project.")
+            exit(1)
+
+        cmd_export(config, argv[1], argv[2])
+
+    elif argv[0] == "import":
+        importPaths(argv[1:], config['dstore'])
+
+
     exit(0)
 
-
-argv = sys.argv[1:]
-
-if argv[0] == "build":
-    ret = cmd_build(argv[1])
-    exit(ret)
-
-config = readJson("{}/cfg/project.json".format(cfgPath))
-
-if argv[0] == "list":
-    cmd_list()
-
-elif argv[0] == "run":
-
-    if len(argv) == 1:
-        jobs, valid = checkJobset(config['jobsets'], config['dstore'], recalc=[])
-        if not valid:
-            runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
-    else:
-        runJobs(config['jobsets'], argv[1:], config['dstore'])
-
-elif argv[0] == "check":
-    jobs, valid = cmd_check()
-    if not valid:
-        exit(1)
-
-
-elif argv[0] == "shell":
-
-    if len(argv) != 2:
-        print("job name is missing")
-        exit(1)
-
-    cmd_shell(argv[1])
-
-
-elif argv[0] == "export":
-    if not cmd_check():
-        print("Project data is not valid. Can not export project.")
-        exit(1)
-
-    cmd_export(config, argv[1], argv[2])
-
-elif argv[0] == "import":
-    importPaths(argv[1:], config['dstore'])
-
-
-exit(0)
-# if __name__ == '__main__':
-#
-#     if sys.argv
+if __name__ == '__main__':
+    main()

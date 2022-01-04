@@ -1,14 +1,21 @@
-# SPDX-License-Identifier: GPL-3.0-only
+{ pkgs ? import <nixpkgs> {} } :
 
-{ pkgs ? import <nixpkgs> { }
-, config
-}:
 
-let
-  cfg = (pkgs.lib.evalModules {
-    modules = [ ./module.nix config ];
-    args = { inherit pkgs; inherit (pkgs) lib; };
-  }).config;
-in
-  cfg.outPath
+with pkgs;
+
+python3.pkgs.buildPythonApplication {
+  pname = "fspx";
+  version = "0.1";
+  src = ./.;
+
+  postPatch = ''
+    substituteInPlace fspx/fspx.py --replace \
+	'instDir = "nix/"' "instDir = \"$out/share/fspx/nix\""
+  '';
+
+  postInstall = ''
+    mkdir -p $out/share/fspx/nix
+    cp nix/* $out/share/fspx/nix
+  '';
+}
 
