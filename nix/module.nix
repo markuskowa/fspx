@@ -97,11 +97,11 @@ in {
 	else allOutputs;
 
       nixShell = job: pkgs.writeScript "nixShell" ''
-	#!/usr/bin/env nix-shell
-	#nix-shell -i bash -p ${job.env}
+        #!/usr/bin/env nix-shell
+        #nix-shell -i bash -p ${job.env}
 
-	cd ${job.workdir}
-	${job.jobScript}
+        cd ${job.workdir}
+        ${job.jobScript}
       '';
 
       in pkgs.runCommand "project" {} ''
