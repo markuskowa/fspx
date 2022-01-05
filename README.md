@@ -13,4 +13,5 @@ A job is a function that takes zero or more inputs (simple files) and produces o
 Jobs are represented by [Nix](https://nixos.org) store paths. The input and output files are kept
 in a content addressed storage and hashed with SHA256 checksum.
 
+## Usage
 

@@ -117,11 +117,11 @@ in {
         #!nix-shell -i bash -p ${job.env}
 
         cd "$1"
-	if [ -z "$2" ]; then
+        if [ -z "$2" ]; then
           launcher=""
-	else
-	  launcher="$2"
-	fi
+        else
+          launcher="$2"
+        fi
         $launcher ${job.jobScript}
       '';
 
