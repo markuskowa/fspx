@@ -289,6 +289,11 @@ def runJobs(jobset, jobnames, dstore):
         except FileNotFoundError as not_found:
             print("Output {} missing!".format(not_found.filename))
 
+        # Link outputs into dstore
+        try:
+            os.makedirs("outputs")
+        except FileExistsError:
+            None
         for file, hash in outputs.items():
             outName = "outputs/{}".format(file)
             storeName = "{}/{}".format(os.path.realpath(dstore), hash)
