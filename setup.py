@@ -14,7 +14,7 @@ setuptools.setup(
     url = "https://github.com/markuskowa/fspx",
     packages = setuptools.find_packages(),
      entry_points={
-        'console_scripts': ['fspx=fspx.fspx:main']
+        'console_scripts': ['fspx=fspx.main:main']
     },
     classifiers=[
         "Programming Language :: Python :: 3",

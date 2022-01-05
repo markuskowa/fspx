@@ -3,15 +3,11 @@
 import os
 import sys
 
-import utils
-import cas
+from . import utils
+from . import cas
 
 # Default path for project files
 cfgPath = ".fspx/"
-
-# Path nix module files
-instDir = "nix/"
-
 
 def importInputPaths(job, name, dstore):
     """ Import inputs for job into dstore and update job manifest
@@ -232,46 +228,9 @@ def runJobs(jobset, jobnames, dstore):
         print()
 
 
-def cmd_build(cfgnix):
-    '''Build the project configuration from nix configuration file
-    '''
-
-    print("Build it")
-    try:
-        os.mkdir(cfgPath)
-    except FileExistsError:
-        None
-    ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
-    return os.waitstatus_to_exitcode(ret)
-
-def cmd_list(config):
-    '''List all jobs in project
-    '''
-    for job in findAllJobs(config['jobsets']):
-        print(job['name'])
-
-def cmd_check(config):
-    '''Check if job results are valid
-    '''
-
-    jobs, valid = checkJobset(config['jobsets'], config['dstore'], recalc=[])
-
-    if not valid:
-        print("The following jobs need to be re-run:")
-
-        for j in jobs:
-            print(j['name'])
-
-    return jobs, valid
-
-def cmd_shell(config, jobname):
-    '''Start a shell with job environment
-    '''
-    job = findJob(config['jobsets'], jobname)
-    os.system("nix-shell -p {}".format(job['env']))
-
-
 def packageJob(name, job):
+    '''Re-write jon definition for export/archival
+    '''
 
     manifest = readManifest(name)
 
@@ -303,7 +262,8 @@ def packageJob(name, job):
     return job
 
 def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
-
+    '''Export files for archived jobset
+    '''
     linkStore = os.path.relpath(targetStore, targetDir + "/io")
     for _, job in jobsets.items():
         for file, hash in job['inputs'].items():
@@ -320,121 +280,11 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
         copyFilesToExternal(job['dependencies'], targetDir, targetStore, dstore)
 
 def collectJobScripts(jobsets, scripts=[]):
-
+    ''' Collect all jobs scripts
+    '''
     for _, job in jobsets.items():
         scripts.append(job['jobScript'])
         scripts = collectJobScripts(job['dependencies'], scripts)
 
     return scripts
 
-def cmd_export(config, toDir, targetStore):
-    '''Export the project
-    '''
-
-    # Copy config file and update hashes
-    jobsets = {}
-    for name, job in config['jobsets'].items():
-        jobsets[name] = packageJob(name, job)
-
-    config['jobsets'] = jobsets
-
-    # Remove workdir (not needed in archive)
-    config.pop("workdir")
-
-    # Copy inputs and outputs to archive
-    print("Copying files to archive...")
-    os.makedirs(toDir)
-
-    os.mkdir("{}/inputs".format(toDir))
-    os.mkdir("{}/outputs".format(toDir))
-
-    try:
-        os.makedirs(targetStore)
-    except FileExistsError:
-        None
-
-    copyFilesToExternal(config['jobsets'], toDir, targetStore, config['dstore'])
-
-    # Fix dstore
-    config['dstore'] = os.path.relpath(targetStore, toDir)
-    utils.writeJson("{}/config.json".format(toDir), config)
-
-    # Create NAR
-    print("Save job scripts to NAR archive...")
-    allJobScripts =  collectJobScripts(config['jobsets'])
-    os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
-
-def cmd_init():
-
-    # create directories
-    dirs = [ 'inputs' 'src' ];
-
-    for d in dirs:
-        try:
-            os.makedirs(d)
-        except FileExistsError:
-            None
-
-#
-# Main
-#
-
-def main():
-    if len(sys.argv) < 2:
-        print("help")
-        exit(0)
-
-
-    argv = sys.argv[1:]
-
-    if argv[0] == "init":
-        cmd_init()
-
-    if argv[0] == "build":
-        ret = cmd_build(argv[1])
-        exit(ret)
-
-    config = utils.readJson("{}/cfg/project.json".format(cfgPath))
-
-    if argv[0] == "list":
-        cmd_list(config)
-
-    elif argv[0] == "run":
-
-        if len(argv) == 1:
-            jobs, valid = checkJobset(config['jobsets'], config['dstore'], recalc=[])
-            if not valid:
-                runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
-        else:
-            runJobs(config['jobsets'], argv[1:], config['dstore'])
-
-    elif argv[0] == "check":
-        jobs, valid = cmd_check(config)
-        if not valid:
-            exit(1)
-
-
-    elif argv[0] == "shell":
-
-        if len(argv) != 2:
-            print("job name is missing")
-            exit(1)
-
-        cmd_shell(config, argv[1])
-
-
-    elif argv[0] == "export":
-        if not cmd_check(config):
-            print("Project data is not valid. Can not export project.")
-            exit(1)
-
-        cmd_export(config, argv[1], argv[2])
-
-    elif argv[0] == "import":
-        cas.importPaths(argv[1:], config['dstore'])
-
-
-    exit(0)
-
-if __name__ == '__main__':
-    main()
