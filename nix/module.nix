@@ -25,6 +25,13 @@ let
 	default = pkgs.coreutils;
       };
 
+      jobLauncher = mkOption {
+	type = types.str;
+	description = "Launcher command used to launch jobScript";
+	example = "sbatch";
+	default = "";
+      };
+
       jobScript = mkOption {
 	type = types.package;
 	description = "The job script";
@@ -44,7 +51,6 @@ let
 	type = types.str;
 	default = "";
       };
-
     };
   }));
 
@@ -111,7 +117,7 @@ in {
         #!nix-shell -i bash -p ${job.env}
 
         cd ${job.workdir}
-        ${job.jobScript}
+        ${job.jobLauncher} ${job.jobScript}
       '';
 
       in pkgs.runCommand "project" {} ''
