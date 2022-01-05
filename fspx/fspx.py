@@ -144,7 +144,7 @@ def linkPath(prefix, path, storePath):
     """Create a symlink into store
     """
 
-    path = "{}/{}".format(prefix, path)
+    path = "{}{}".format(prefix, path)
     if os.path.islink(path):
         os.remove(path)
 
@@ -290,7 +290,11 @@ def runJobs(jobset, jobnames, dstore):
             print("Output {} missing!".format(not_found.filename))
 
         for file, hash in outputs.items():
-            linkPath("outputs/", file, "{}/{}".format(os.path.realpath(dstore), hash))
+            outName = "outputs/{}".format(file)
+            storeName = "{}/{}".format(os.path.realpath(dstore), hash)
+            if os.path.islink(outName):
+                os.remove(outName)
+            os.symlink(storeName, outName)
 
         print()
 
