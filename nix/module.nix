@@ -39,6 +39,12 @@ let
 	type = types.str;
 	default = cfg.workdir;
       };
+
+      description = mkOption {
+	type = types.str;
+	default = "";
+      };
+
     };
   }));
 
@@ -61,11 +67,15 @@ in {
       type = jobsetType;
     };
 
+    description = mkOption {
+      type = types.str;
+      default = "";
+    };
+
     outPath = mkOption {
       internal = true;
       type = types.package;
     };
-
   };
 
   config = {
