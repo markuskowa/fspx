@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 import os
-import json
 import sys
 
+import utils
 import cas
 
 # Default path for project files
@@ -11,15 +11,6 @@ cfgPath = ".fspx/"
 
 # Path nix module files
 instDir = "nix/"
-
-def readJson(path):
-    with open(path, "rb") as f:
-        return json.load(f)
-
-def writeJson(path, js):
-    with open(path, "w") as jsfile:
-        json.dump(js, jsfile)
-
 
 
 def importInputPaths(job, name, dstore):
@@ -90,7 +81,7 @@ def readManifest(name):
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
-        m = readJson(mfile)
+        m = utils.readJson(mfile)
     else:
         m = {'inputs':{}, 'function':"", 'outputs':{}}
 
@@ -100,13 +91,13 @@ def updateManifest(name, data):
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
-        m = readJson(mfile)
+        m = utils.readJson(mfile)
     else:
         m = {}
 
     m = { **m, **data }
 
-    writeJson(mfile, m)
+    utils.writeJson(mfile, m)
 
 def findAllJobs(jobsets, jobs = []):
 
@@ -366,7 +357,7 @@ def cmd_export(config, toDir, targetStore):
 
     # Fix dstore
     config['dstore'] = os.path.relpath(targetStore, toDir)
-    writeJson("{}/config.json".format(toDir), config)
+    utils.writeJson("{}/config.json".format(toDir), config)
 
     # Create NAR
     print("Save job scripts to NAR archive...")
@@ -403,7 +394,7 @@ def main():
         ret = cmd_build(argv[1])
         exit(ret)
 
-    config = readJson("{}/cfg/project.json".format(cfgPath))
+    config = utils.readJson("{}/cfg/project.json".format(cfgPath))
 
     if argv[0] == "list":
         cmd_list(config)
@@ -440,7 +431,7 @@ def main():
         cmd_export(config, argv[1], argv[2])
 
     elif argv[0] == "import":
-        importPaths(argv[1:], config['dstore'])
+        cas.importPaths(argv[1:], config['dstore'])
 
 
     exit(0)
