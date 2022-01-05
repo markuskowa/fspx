@@ -2,6 +2,7 @@
 
 import os
 import sys
+import argparse
 
 from . import utils
 from . import fspx
@@ -106,58 +107,80 @@ def cmdInit():
 #
 
 def main():
-    if len(sys.argv) < 2:
-        print("help")
+    argsMain = argparse.ArgumentParser(
+            prog = "fspx",
+            description = "Functional Scientific Project Execution.")
+
+    cmdArgs = argsMain.add_subparsers(dest="command", help='sub-command help')
+
+    argsInit = cmdArgs.add_parser("init", help="Setup directories and templates.")
+
+    argsBuild = cmdArgs.add_parser("build", help="Build the project description from Nix config file.")
+    argsBuild.add_argument("config_file", type=str, help="Project configuration.")
+
+    argsList = cmdArgs.add_parser("list", help="List job names.")
+
+    argsCheck = cmdArgs.add_parser("check", help="Check project and list invalidated jobs.")
+
+    argsRun = cmdArgs.add_parser("run", help="Run jobs")
+    argsRun.add_argument("job", nargs='?', help="Job to run. If ommited all invalidated jobs be run.")
+
+    argsShell = cmdArgs.add_parser("shell", help="Enter an interactive job shell environment.")
+    argsShell.add_argument("job", help="Job to pick shell from.")
+
+    argsExport = cmdArgs.add_parser("export", help="Export a finished project.")
+    argsExport.add_argument("target_dir", help="Traget directory. Must be empty.")
+    argsExport.add_argument("target_store", help="Traget data store directory.")
+
+    argsImport = cmdArgs.add_parser("import", help="Import files into data store manually.")
+    argsImport.add_argument("files", nargs='+', help="Files to import.")
+
+    args = argsMain.parse_args()
+
+    if args.command == None:
+        argsMain.print_help()
+        exit(1)
+
+    elif args.command == "init":
+        cmdInit()
         exit(0)
 
-
-    argv = sys.argv[1:]
-
-    if argv[0] == "init":
-        cmdInit()
-
-    if argv[0] == "build":
-        ret = cmdBuild(argv[1])
+    elif args.command == "build":
+        ret = cmdBuild(args.config_file)
         exit(ret)
 
+    # Read the config. Every command from here on will need it
     config = utils.readJson("{}/cfg/project.json".format(cfgPath))
 
-    if argv[0] == "list":
+    if args.command == "list":
         cmdList(config)
 
-    elif argv[0] == "run":
-
-        if len(argv) == 1:
-            jobs, valid = fspx.checkJobset(config['jobsets'], config['dstore'], recalc=[])
-            if not valid:
-                fspx.runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
-        else:
-            fspx.runJobs(config['jobsets'], argv[1:], config['dstore'])
-
-    elif argv[0] == "check":
+    elif args.command == "check":
         jobs, valid = cmdCheck(config)
         if not valid:
             exit(1)
 
+    elif args.command == "run":
 
-    elif argv[0] == "shell":
+        if args.job == None:
+            jobs, valid = fspx.checkJobset(config['jobsets'], config['dstore'], recalc=[])
+            if not valid:
+                fspx.runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
+        else:
+            fspx.runJobs(config['jobsets'], args.job, config['dstore'])
 
-        if len(argv) != 2:
-            print("job name is missing")
-            exit(1)
+    elif args.command == "shell":
+        cmdShell(config, args.job)
 
-        cmdShell(config, argv[1])
-
-
-    elif argv[0] == "export":
+    elif args.command == "export":
         if not cmdCheck(config):
             print("Project data is not valid. Can not export project.")
             exit(1)
 
-        cmdExport(config, argv[1], argv[2])
+        cmdExport(config, args.target_dir, args.target_store)
 
-    elif argv[0] == "import":
-        cas.importPaths(argv[1:], config['dstore'])
+    elif args.command == "import":
+        cas.importPaths(args.file_names, config['dstore'])
 
 
     exit(0)
