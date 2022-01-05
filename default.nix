@@ -9,7 +9,7 @@ python3.pkgs.buildPythonApplication {
   src = ./.;
 
   postPatch = ''
-    substituteInPlace fspx/fspx.py --replace \
+    substituteInPlace fspx/main.py --replace \
 	'instDir = "nix/"' "instDir = \"$out/share/fspx/nix\""
   '';
 
