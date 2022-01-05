@@ -1,0 +1,30 @@
+***,CO2
+
+symmetry,x
+
+ANGSTROM
+
+geometry = {
+  X
+  C  1 1.
+  O  2 r1  1 a1
+  O  2 r1  1 a1  3 180.
+}
+
+readvar,geom.act,noindex
+
+HF
+
+i=1
+DO a1=90,45,-2.5
+  HF
+
+  an(i) = a1
+  En(i) = energy
+
+  i=i+1
+END DO
+
+table,an,En
+save,pes.dat,new
+
