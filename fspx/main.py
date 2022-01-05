@@ -51,7 +51,7 @@ def cmdShell(config, jobname):
     '''Start a shell with job environment
     '''
     job = fspx.findJob(config['jobsets'], jobname)
-    os.system("nix-shell -p {}".format(job['env']))
+    os.system("mkdir -p {0}; cd {0}; nix-shell -p {1}".format(job['workdir'], job['env']))
 
 
 def cmdExport(config, toDir, targetStore):
