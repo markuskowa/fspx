@@ -172,7 +172,7 @@ def checkJobset(jobset, dstore, recalc = []):
 
     return recalc, valid
 
-def runJobs(jobset, jobnames, dstore):
+def runJobs(jobset, jobnames, dstore, launcher=None):
     """Run a list of jobs
     """
     for name in jobnames:
@@ -198,8 +198,11 @@ def runJobs(jobset, jobnames, dstore):
 
 
         # Run job
+        if launcher == None:
+            launcher = job['jobLauncher']
+
         print("running job {}, {}".format(name, job['runScript']))
-        ret = os.system(job['runScript'])
+        ret = os.system("{} {} \"{}\"".format(job['runScript'], job['workdir'], launcher))
         if os.waitstatus_to_exitcode(ret) != 0:
             print("Running job {} failed!".format(name))
             exit(1)

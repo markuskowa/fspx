@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 import os
-import sys
 import argparse
 
 from . import utils
@@ -124,6 +123,7 @@ def main():
 
     argsRun = cmdArgs.add_parser("run", help="Run jobs")
     argsRun.add_argument("job", nargs='?', help="Job to run. If ommited all invalidated jobs be run.")
+    argsRun.add_argument("-l", "--launcher", help="Override job launcher.")
 
     argsShell = cmdArgs.add_parser("shell", help="Enter an interactive job shell environment.")
     argsShell.add_argument("job", help="Job to pick shell from.")
@@ -165,9 +165,9 @@ def main():
         if args.job == None:
             jobs, valid = fspx.checkJobset(config['jobsets'], config['dstore'], recalc=[])
             if not valid:
-                fspx.runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'])
+                fspx.runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'], launcher = args.launcher)
         else:
-            fspx.runJobs(config['jobsets'], args.job, config['dstore'])
+            fspx.runJobs(config['jobsets'], args.job, config['dstore'], launcher = args.launcher)
 
     elif args.command == "shell":
         cmdShell(config, args.job)
