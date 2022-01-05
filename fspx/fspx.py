@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 import os
-import sys
 
 from . import utils
 from . import cas
@@ -214,6 +213,7 @@ def runJobs(jobset, jobnames, dstore, launcher=None):
             outputs = importOutputPaths(job, name, dstore)
         except FileNotFoundError as not_found:
             print("Output {} missing!".format(not_found.filename))
+            return
 
         # Link outputs into dstore
         try:
