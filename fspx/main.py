@@ -94,7 +94,7 @@ def cmdExport(config, toDir, targetStore):
 def cmdInit():
 
     # create directories
-    dirs = [ 'inputs' 'src' ];
+    dirs = [ 'inputs', 'src' ];
 
     for d in dirs:
         try:
