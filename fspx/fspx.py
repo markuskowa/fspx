@@ -95,7 +95,6 @@ def importInputPaths(job, name, dstore):
     mvalid = True
 
     # find unhashed paths and import them
-    inputs=[]
     for file, hash in job['inputs'].items():
         # import paths if needed
         if hash == None:
@@ -116,7 +115,6 @@ def importInputPaths(job, name, dstore):
     # check if function has changed
     if job['runScript'] != m['function']:
         m['function'] = job['runScript']
-        valid = False
 
     # clear output in manifest
     if not mvalid:
@@ -294,6 +292,7 @@ def runJobs(jobset, jobnames, dstore):
             os.makedirs("outputs")
         except FileExistsError:
             None
+
         for file, hash in outputs.items():
             outName = "outputs/{}".format(file)
             storeName = "{}/{}".format(os.path.realpath(dstore), hash)
@@ -316,7 +315,7 @@ def cmd_build(cfgnix):
     ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
     return os.waitstatus_to_exitcode(ret)
 
-def cmd_list():
+def cmd_list(config):
     '''List all jobs in project
     '''
     for job in findAllJobs(config['jobsets']):
@@ -377,7 +376,7 @@ def packageJob(name, job):
 def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
 
     linkStore = os.path.relpath(targetStore, targetDir + "/io")
-    for name, job in jobsets.items():
+    for _, job in jobsets.items():
         for file, hash in job['inputs'].items():
             if not os.path.exists("{}/{}".format(targetStore, hash)):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
@@ -393,7 +392,7 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
 
 def collectJobScripts(jobsets, scripts=[]):
 
-    for name, job in jobsets.items():
+    for _, job in jobsets.items():
         scripts.append(job['jobScript'])
         scripts = collectJobScripts(job['dependencies'], scripts)
 
@@ -436,6 +435,17 @@ def cmd_export(config, toDir, targetStore):
     allJobScripts =  collectJobScripts(config['jobsets'])
     os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
 
+def cmd_init():
+
+    # create directories
+    dirs = [ 'inputs' 'src' ];
+
+    for d in dirs:
+        try:
+            os.makedirs(d)
+        except FileExistsError:
+            None
+
 #
 # Main
 #
@@ -448,6 +458,9 @@ def main():
 
     argv = sys.argv[1:]
 
+    if argv[0] == "init":
+        cmd_init()
+
     if argv[0] == "build":
         ret = cmd_build(argv[1])
         exit(ret)
@@ -455,7 +468,7 @@ def main():
     config = readJson("{}/cfg/project.json".format(cfgPath))
 
     if argv[0] == "list":
-        cmd_list()
+        cmd_list(config)
 
     elif argv[0] == "run":
 
