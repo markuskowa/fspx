@@ -482,7 +482,7 @@ def main():
 
 
     elif argv[0] == "export":
-        if not cmd_check():
+        if not cmd_check(config):
             print("Project data is not valid. Can not export project.")
             exit(1)
 
