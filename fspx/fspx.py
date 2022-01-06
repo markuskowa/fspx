@@ -171,6 +171,21 @@ def checkJobset(jobset, dstore, recalc = []):
 
     return recalc, valid
 
+def linkInputsToWorkdir(inputs, workdir, dstore):
+    try:
+        os.makedirs(workdir + "/inputs")
+    except FileExistsError:
+        None
+
+    for inp, hash in inputs.items():
+        tmpName = "{}/inputs/{}".format(workdir, os.path.basename(inp))
+        storeName = "{}/{}".format(os.path.realpath(dstore), hash)
+        if os.path.islink(tmpName):
+            os.remove(tmpName)
+
+        os.symlink(storeName, tmpName)
+
+
 def runJobs(jobset, jobnames, dstore, launcher=None):
     """Run a list of jobs
     """
@@ -182,25 +197,13 @@ def runJobs(jobset, jobnames, dstore, launcher=None):
         inputs = importInputPaths(job, name, dstore)
 
         # Link inputs into workdir
-        try:
-            os.makedirs(workdir + "/inputs")
-        except FileExistsError:
-            None
-
-        for inp, hash in inputs.items():
-            tmpName = "{}/inputs/{}".format(workdir, os.path.basename(inp))
-            storeName = "{}/{}".format(os.path.realpath(dstore), hash)
-            if os.path.islink(tmpName):
-                os.remove(tmpName)
-
-            os.symlink(storeName, tmpName)
-
+        linkInputsToWorkdir(inputs, workdir, dstore)
 
         # Run job
         if launcher == None:
             launcher = job['jobLauncher']
 
-        print("running job {}, {}".format(name, job['runScript']))
+        print("Running job {}, {} ...".format(name, job['runScript']))
         ret = os.system("{} {} \"{}\"".format(job['runScript'], job['workdir'], launcher))
         if os.waitstatus_to_exitcode(ret) != 0:
             print("Running job {} failed!".format(name))

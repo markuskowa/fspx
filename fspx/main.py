@@ -46,11 +46,21 @@ def cmdCheck(config):
 
     return jobs, valid
 
-def cmdShell(config, jobname):
-    '''Start a shell with job environment
+def cmdShell(config, jobname, dstore):
+    '''Start a shell in a job environment
     '''
     job = fspx.findJob(config['jobsets'], jobname)
-    os.system("mkdir -p {0}; cd {0}; nix-shell -p {1}".format(job['workdir'], job['env']))
+
+    #workdir = os.path.expandvars(job['workdir'])
+    workdir = job['workdir']
+
+    # Import inputs
+    print("Import and link inputs...")
+    inputs = fspx.importInputPaths(job, jobname, dstore)
+    fspx.linkInputsToWorkdir(inputs, workdir, dstore)
+
+    print("Run nix-shell...")
+    os.system("cd {0}; nix-shell -p {1}".format(workdir, job['env']))
 
 
 def cmdExport(config, toDir, targetStore):
@@ -112,14 +122,14 @@ def main():
 
     cmdArgs = argsMain.add_subparsers(dest="command", help='sub-command help')
 
-    argsInit = cmdArgs.add_parser("init", help="Setup directories and templates.")
+    cmdArgs.add_parser("init", help="Setup directories and templates.")
 
     argsBuild = cmdArgs.add_parser("build", help="Build the project description from Nix config file.")
     argsBuild.add_argument("config_file", type=str, help="Project configuration.")
 
-    argsList = cmdArgs.add_parser("list", help="List job names.")
+    cmdArgs.add_parser("list", help="List job names.")
 
-    argsCheck = cmdArgs.add_parser("check", help="Check project and list invalidated jobs.")
+    cmdArgs.add_parser("check", help="Check project and list invalidated jobs.")
 
     argsRun = cmdArgs.add_parser("run", help="Run jobs")
     argsRun.add_argument("job", nargs='?', help="Job to run. If ommited all invalidated jobs be run.")
@@ -170,7 +180,7 @@ def main():
             fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], launcher = args.launcher)
 
     elif args.command == "shell":
-        cmdShell(config, args.job)
+        cmdShell(config, args.job, config['dstore'])
 
     elif args.command == "export":
         if not cmdCheck(config):
