@@ -82,7 +82,7 @@ let
 	  The working directory for this job.
           This defaults to the working directory of the project.
 	'';
-	default = cfg.workdir;
+	default = null;
       };
 
       description = mkOption {
@@ -140,8 +140,8 @@ in {
 	  job // {
 	    runScript = nixShell job;
 	    deps = fixJobsets job.deps;
-	  } // optionalAttrs (job.workdir != null) {
-	    workdir = cfg.workdir + "/name";
+	  } // optionalAttrs (job.workdir == null) {
+	    workdir = cfg.workdir + "/" + name;
 	  }) jobset;
 
       nixShell = job: pkgs.writeScript "nixShell" ''
