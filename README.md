@@ -55,13 +55,23 @@ In this simple example we have a job named pre-run, which creates the data file
 and second job named sum, which sums up the numbers in data
 
 We can now build the project configuation with:
-`fspx build ./config.nix`
+```
+fspx build ./config.nix
+```
 This will create a directory `.fspx/cfg`, which points to the nix store and contains
 the project configuration in `project.json`.
 
 Next, we need to run all jobs:
-`fspx run`
+```
+fspx run
+```
 This now creates the outputs of each job, `outputs/data` and `outputs/sum` as well
 as `.fspx/pre-run.manifest` and `.fspx/sum.manifest`, which record the state of inputs
 outputs and all job scripts.
+
+With
+```
+fspx check
+```
+one can verify, that all jobs in the project are valid.
 
