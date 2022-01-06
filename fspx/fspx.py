@@ -97,7 +97,7 @@ def updateManifest(name, data):
 def findAllJobs(jobsets, jobs = []):
 
     for name, job in jobsets.items():
-        findAllJobs(job['dependencies'], jobs = jobs)
+        findAllJobs(job['deps'], jobs = jobs)
         jobs.append({ 'name' : name, 'job' : job})
 
     return jobs
@@ -108,7 +108,7 @@ def findJob(jobsets, name):
         if key == name:
             return job
         else:
-            return findJob(job['dependencies'], name)
+            return findJob(job['deps'], name)
 
     return {}
 
@@ -159,7 +159,7 @@ def checkJobset(jobset, dstore, recalc = []):
     valid = True
     for name, job in jobset.items():
         # check children
-        recalc, cvalid = checkJobset(job['dependencies'], dstore, recalc)
+        recalc, cvalid = checkJobset(job['deps'], dstore, recalc)
 
         if not cvalid:
             valid = False
@@ -256,11 +256,11 @@ def packageJob(name, job):
 
     job['outputs'] = outputs
 
-    dependencies = {}
-    for dname, djob in job['dependencies'].items():
-        dependencies[dname] = packageJob(dname, djob)
+    deps = {}
+    for dname, djob in job['deps'].items():
+        deps[dname] = packageJob(dname, djob)
 
-    job['dependencies'] = dependencies
+    job['deps'] = deps
 
     # This is irrelevant for an archived job
     job.pop("workdir")
@@ -283,14 +283,14 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
             os.symlink("{}/{}".format(linkStore, hash), "{}/outputs/{}".format(targetDir, os.path.basename(file)))
 
-        copyFilesToExternal(job['dependencies'], targetDir, targetStore, dstore)
+        copyFilesToExternal(job['deps'], targetDir, targetStore, dstore)
 
 def collectJobScripts(jobsets, scripts=[]):
     ''' Collect all jobs scripts
     '''
     for _, job in jobsets.items():
         scripts.append(job['jobScript'])
-        scripts = collectJobScripts(job['dependencies'], scripts)
+        scripts = collectJobScripts(job['deps'], scripts)
 
     return scripts
 
