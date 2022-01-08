@@ -11,7 +11,9 @@ which allow us to determine which jobs in a project need to be recalculated.
 A project consists of one or more jobs. These jobs can depend on each other.
 A job is a function that takes zero or more inputs (simple files) and produces one or more outputs (files).
 Jobs are represented by [Nix](https://nixos.org) store paths. The input and output files are kept
-in a content addressed storage and are hashed with a SHA256 checksum.
+in a content addressed storage and are hashed with a SHA256 checksum. If the function, an input, or and output
+changes all jobs dependent jobs need to be recalculated.
+
 
 ## Usage
 In the first step we need to create a config file for the project. The config makes
@@ -22,9 +24,17 @@ use of the nix module system:
   workdir = "/tmp/fspx";
   dstore = "./dstore";
   jobsets = {
+    pre-run = {
+      outputs = [ "data"];
+      jobScript = pkgs.writeShellScript "run"
+      ''
+	echo "1 2 3" > data
+      '';
+    };
+
     sum = {
       inputs = {
-        "outputs/data" = null;
+        ":data" = null;
       };
       outputs = [ "sum" ];
       env = pkgs.coreutils;
@@ -38,21 +48,17 @@ use of the nix module system:
         '';
 
       deps = {
-        pre-run = {
-          outputs = [ "data"];
-          jobScript = pkgs.writeShellScript "run"
-          ''
-            echo "1 2 3" > data
-          '';
-        };
       };
     };
   };
 }
 ```
 
-In this simple example we have a job named pre-run, which creates the data file
-and second job named sum, which sums up the numbers in data
+In this simple example we have a job named pre-run, which creates the data file named "data"
+and second job named sum, which sums up the numbers in data. Note that the input name in
+the job sum is prefix with ":". This means: take "data" from another job output.
+The job sum thus depends on the job pre-run. If something in pre-run changes, sum will be
+automatically recalculated.
 
 We can now build the project configuation with:
 ```
