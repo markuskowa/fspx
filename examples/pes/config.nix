@@ -14,50 +14,46 @@ let
       molpro --launcher "mpiexec.hydra -np $SLURM_CPUS_PER_TASK molpro.exe" ${input}
     '';
 
-  pes = {
-    inputs = {
-      "inputs/co2-pes.inp" = null;
-      "outputs/geom.act" = null;
-    };
-    outputs = [ "pes.dat" ];
-    env = pkgs.qchem.molpro;
-    jobLauncher = "sbatch -W";
-    jobScript = pkgs.writeShellScript "pes" ''
-      ${molpro "co2-pes.inp"}
-    '';
-    dependencies = { inherit opt; };
-  };
-
-  opt = {
-    inputs = {
-      "inputs/co2-opt.inp" = null;
-    };
-    outputs = [ "geom.act" ];
-    env = pkgs.qchem.molpro;
-    jobLauncher = "sbatch -W";
-    jobScript = pkgs.writeShellScript "opt" ''
-      ${molpro "co2-opt.inp"}
-    '';
-  };
-
-  interp = {
-    inputs = {
-      "outputs/pes.dat" = null;
-      "inputs/interp.m" = null;
-    };
-    outputs = [ "pes_interp.dat" ];
-    env = pkgs.octave;
-    jobScript = pkgs.writeShellScript "interp" ''
-      octave inputs/interp.m
-    '';
-
-    dependencies = { inherit pes; };
-  };
 
 in {
   workdir = "$GSCRATCH/fspx-demo";
   dstore = "./dstore";
   jobsets = {
-    inherit interp;
+    opt = {
+      inputs = {
+	"inputs/co2-opt.inp" = null;
+      };
+      outputs = [ "geom.act" ];
+      env = pkgs.qchem.molpro;
+      jobLauncher = "sbatch -W";
+      jobScript = pkgs.writeShellScript "opt" ''
+	${molpro "co2-opt.inp"}
+      '';
+    };
+
+    pes = {
+      inputs = {
+	"inputs/co2-pes.inp" = null;
+	":geom.act" = null;
+      };
+      outputs = [ "pes.dat" ];
+      env = pkgs.qchem.molpro;
+      jobLauncher = "sbatch -W";
+      jobScript = pkgs.writeShellScript "pes" ''
+	${molpro "co2-pes.inp"}
+      '';
+    };
+
+    interp = {
+      inputs = {
+	":pes.dat" = null;
+	"inputs/interp.m" = null;
+      };
+      outputs = [ "pes_interp.dat" ];
+      env = pkgs.octave;
+      jobScript = pkgs.writeShellScript "interp" ''
+	octave inputs/interp.m
+      '';
+    };
   };
 }
