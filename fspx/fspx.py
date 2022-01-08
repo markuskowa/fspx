@@ -184,9 +184,7 @@ def checkJobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool
             # check children
             recalc, cvalid = checkJobset(job['deps'], dstore, recalc)
 
-            if not cvalid:
-                valid = False
-                recalc.append(name)
+            valid = cvalid
             if not checkJob(name, job, dstore):
                 valid = False
                 recalc.append(name)
