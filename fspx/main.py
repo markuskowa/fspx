@@ -175,9 +175,9 @@ def main():
         if args.job == None:
             jobs, valid = fspx.checkJobset(config['deps'], config['dstore'])
             if not valid:
-                fspx.runJobs(config['jobsets'], jobs, config['dstore'], launcher = args.launcher)
+                fspx.runJobs(config['jobsets'], jobs, config['dstore'], global_launcher = args.launcher)
         else:
-            fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], launcher = args.launcher)
+            fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], global_launcher = args.launcher)
 
     elif args.command == "shell":
         cmdShell(config, args.job, config['dstore'])
