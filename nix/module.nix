@@ -68,14 +68,6 @@ let
 	'';
       };
 
-      deps = mkOption {
-	type = jobsetType;
-	description = ''
-	  All jobs that this jobs depends on.
-	'';
-	default = {};
-      };
-
       workdir = mkOption {
 	type = with types; nullOr str;
 	description = ''
@@ -139,7 +131,6 @@ in {
       fixJobsets = jobset: mapAttrs (name: job:
 	  job // {
 	    runScript = nixShell job;
-	    deps = fixJobsets job.deps;
 	  } // optionalAttrs (job.workdir == null) {
 	    workdir = cfg.workdir + "/" + name;
 	  }) jobset;
@@ -159,25 +150,60 @@ in {
 
       project = (builtins.removeAttrs (config // { jobsets = fixJobsets config.jobsets; }) [ "outPath" "_module"]);
 
-      allJobs = let
-	collectJobs = x: flatten (mapAttrsToList (name: job: [ name ] ++ collectJobs job.deps ) x);
-	allJobs = collectJobs cfg.jobsets;
-      in if length (unique allJobs) != length allJobs then
-	throw "Job names must be unique within project"
-	else allJobs;
-
       allOutputs = let
-	collectOutputs = x: flatten (mapAttrsToList (name: job: job.outputs ++ collectOutputs job.deps ) x);
+	collectOutputs = x: flatten (mapAttrsToList (name: job: job.outputs ) x);
 	allOutputs = collectOutputs cfg.jobsets;
       in if length (unique allOutputs) != length allOutputs then
 	throw "Output names must be unique within project"
 	else allOutputs;
 
+      # Remap outputs to { output = jobname; }
+      outputsMap = builtins.listToAttrs (flatten (mapAttrsToList (name: job: (map (x: nameValuePair x name ) job.outputs) ) project.jobsets));
+
+      # Remap inputs to { input = jobname; }
+      inputsMap = builtins.listToAttrs (flatten (mapAttrsToList (name: job: (map (x: nameValuePair x name ) (attrNames job.inputs)) ) project.jobsets));
+
+      deps = let
+	stripFirst = x: substring 1 (stringLength x) x;
+	# map input name to job name, remove original inputs, clear leading colon
+	# input2jobs :: attrs(input/hash) -> attrs(input/jobs)
+	inputs2jobs = inputs: listToAttrs (filter (x: x != null) (mapAttrsToList (input: hash:
+		  if hasPrefix ":" input then
+		    if hasAttr (stripFirst input) outputsMap then
+		      let
+			name = getAttr (stripFirst input) outputsMap;
+		      in {
+			inherit name;
+			value = getAttr name project.jobsets;
+		      }
+		    else throw "${input} is not produced by any job!"
+		  else null
+	        ) inputs));
+
+	# find jobs where outputs are not used by any other job
+        # filterTopLevel :: attrs(jobset) -> attrs(jobset)
+	filterTopLevel = jobsets: filterAttrs (name: job:
+	      foldr (a: b:
+		(! (hasAttr ":${a}" (filterAttrs (n: j: j != name) inputsMap))) && b)
+	      true job.outputs
+	    ) jobsets;
+
+	# Create dependency tree
+	# collectDeps :: attrs(jobset) -> attrs(deps)
+	collectDeps = jobsets: (mapAttrs (name: job: {
+	      inherit (job) inputs outputs runScript;
+ 	      deps = collectDeps (inputs2jobs job.inputs);
+	      } ) jobsets);
+
+	in filterTopLevel (collectDeps project.jobsets);
+
       in pkgs.runCommand "project" {} ''
       mkdir -p $out
 
-      echo '${builtins.toJSON project}' > $out/project.json
-      echo "${concatStringsSep "\n" allJobs}" > $out/allJobs
+      echo '${builtins.toJSON (project // { inherit deps; }) }' > $out/project.json
+      echo '${builtins.toJSON inputsMap}' > $out/inputs.json
+      echo '${builtins.toJSON outputsMap}' > $out/outputs.json
+      echo '${builtins.toJSON deps}' > $out/deps.json
       echo "${concatStringsSep "\n" allOutputs}" > $out/allOutputs
     '';
 

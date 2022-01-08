@@ -19,6 +19,21 @@ def hashExists(sha256, dstore):
 
     return True
 
+def hash_from_store_path(path: str, dstore: str) -> str:
+
+    path = os.path.realpath(path)
+    dstore = os.path.realpath(dstore)
+
+    try:
+        idx = path.index(dstore)
+    except ValueError:
+        raise Exception("{} is not data store {}".format(path, dstore))
+    else:
+        if idx > 0:
+            raise Exception("{} is not data store {}".format(path, dstore))
+
+    return os.path.basename(path)
+
 def importPaths(paths, dstore, prefix=""):
     """Copy a list of files into the dstore.
 

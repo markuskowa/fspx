@@ -8,7 +8,20 @@ from . import cas
 # Default path for project files
 cfgPath = ".fspx/"
 
-def importInputPaths(job, name, dstore):
+def is_output(name: str) -> bool:
+    if name[0] == ":":
+        return True
+    else:
+        return False
+
+def to_outpath(name: str) -> str:
+    if is_output(name):
+        return "outputs/" + name[1:]
+    else:
+        return name
+
+
+def importInputPaths(job: dict, name: str, dstore: str) -> dict:
     """ Import inputs for job into dstore and update job manifest
     """
 
@@ -20,13 +33,18 @@ def importInputPaths(job, name, dstore):
 
     # find unhashed paths and import them
     for file, hash in job['inputs'].items():
-        # import paths if needed
-        if hash == None:
-            hash = cas.importPaths([file], dstore)
-            hash = hash[file]
-        elif not cas.hashExists(hash, dstore):
-            hash = cas.importPaths([file], dstore)
-            hash = hash[file]
+        if not is_output(file):
+            # import paths if needed
+            if hash == None:
+                hash = cas.importPaths([file], dstore)
+                hash = hash[file]
+            elif not cas.hashExists(hash, dstore):
+                hash = cas.importPaths([file], dstore)
+                hash = hash[file]
+        else:
+            # import to check hash
+            hash = cas.importPaths([to_outpath(file)], dstore)
+            hash = hash[to_outpath(file)]
 
         # check manifest
         if not file in m['inputs']:
@@ -72,7 +90,7 @@ def linkPath(prefix, path, storePath):
 
     os.symlink(storePath, path)
 
-def readManifest(name):
+def readManifest(name: str) -> dict:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
@@ -102,17 +120,7 @@ def findAllJobs(jobsets, jobs = []):
 
     return jobs
 
-def findJob(jobsets, name):
-
-    for key, job in jobsets.items():
-        if key == name:
-            return job
-        else:
-            return findJob(job['deps'], name)
-
-    return {}
-
-def checkJob(name, job, dstore):
+def checkJob(name: str, job: dict, dstore: str) -> bool:
     """Check if the current config matches the manifest
     """
 
@@ -122,11 +130,11 @@ def checkJob(name, job, dstore):
         return False
 
     # check if outputs exist
-    for name in job['outputs']:
-        if not name in manifest['outputs']:
+    for file in job['outputs']:
+        if not file in manifest['outputs']:
             return False
 
-        if not cas.hashExists(manifest['outputs'][name], dstore):
+        if not cas.hashExists(manifest['outputs'][file], dstore):
             return False
 
     # check if function is still valid
@@ -134,40 +142,56 @@ def checkJob(name, job, dstore):
         return False
 
     # check if input hashes have changed
-    for name, hash in job['inputs'].items():
+    for file, hash in job['inputs'].items():
 
         # check if input exists
-        if not name in manifest['inputs']:
+        if not file in manifest['inputs']:
             return False
 
         # check fixed input
         if hash != None:
-            if hash != manifest['inputs'][name]:
+            if is_output(file):
+                # check if expected hash and output match
+                outhash = cas.hash_from_store_path(to_outpath(file), dstore)
+                if hash != outhash:
+                    print("WARNING: output {} has not the expect input hash!".format(file))
+                    return False
+            if hash != manifest['inputs'][file]:
                 return False
 
+
         # check hash
-        sha256 = cas.hashFile(name)
-        if manifest['inputs'][name] != sha256:
+        if is_output(file):
+            if not os.path.exists(to_outpath(file)):
+                return False
+
+            hash = cas.hash_from_store_path(to_outpath(file), dstore)
+        else:
+            hash = cas.hashFile(file)
+
+        if manifest['inputs'][file] != hash:
             return False
 
     return True
 
-def checkJobset(jobset, dstore, recalc = []):
+def checkJobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool]:
     """Check all jobsets and return invalidated ones
     """
 
     valid = True
     for name, job in jobset.items():
-        # check children
-        recalc, cvalid = checkJobset(job['deps'], dstore, recalc)
+        if name not in recalc:
+            # check children
+            recalc, cvalid = checkJobset(job['deps'], dstore, recalc)
 
-        if not cvalid:
+            if not cvalid:
+                valid = False
+                recalc.append(name)
+            if not checkJob(name, job, dstore):
+                valid = False
+                recalc.append(name)
+        else:
             valid = False
-            recalc.append({'name' : name, 'job': job})
-        elif not checkJob(name, job, dstore):
-            valid = False
-            recalc.append({'name' : name, 'job': job})
-
 
     return recalc, valid
 
@@ -178,7 +202,7 @@ def linkInputsToWorkdir(inputs, workdir, dstore):
         None
 
     for inp, hash in inputs.items():
-        tmpName = "{}/inputs/{}".format(workdir, os.path.basename(inp))
+        tmpName = "{}/inputs/{}".format(workdir, os.path.basename(to_outpath(inp)))
         storeName = "{}/{}".format(os.path.realpath(dstore), hash)
         if os.path.islink(tmpName):
             os.remove(tmpName)
@@ -190,7 +214,7 @@ def runJobs(jobset, jobnames, dstore, launcher=None):
     """Run a list of jobs
     """
     for name in jobnames:
-        job = findJob(jobset, name)
+        job = jobset[name]
         workdir = os.path.expandvars(job['workdir'])
 
         # Import inputs
@@ -256,12 +280,6 @@ def packageJob(name, job):
 
     job['outputs'] = outputs
 
-    deps = {}
-    for dname, djob in job['deps'].items():
-        deps[dname] = packageJob(dname, djob)
-
-    job['deps'] = deps
-
     # This is irrelevant for an archived job
     job.pop("workdir")
 
@@ -272,25 +290,29 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
     '''
     linkStore = os.path.relpath(targetStore, targetDir + "/io")
     for _, job in jobsets.items():
-        for file, hash in job['inputs'].items():
-            if not os.path.exists("{}/{}".format(targetStore, hash)):
-                os.system("cp {}/{} {}".format(dstore, hash, targetStore))
-            if not os.path.exists("{}/{}".format(targetDir, file)):
-                os.symlink("{}/{}".format(linkStore, hash), "{}/inputs/{}".format(targetDir, os.path.basename(file)))
 
+        # copy inputs
+        for file, hash in job['inputs'].items():
+            if not is_output(file):
+                # copy file to to taget
+                if not os.path.exists("{}/{}".format(targetStore, hash)):
+                    os.system("cp {}/{} {}".format(dstore, hash, targetStore))
+
+                # create symlink to dstore
+                if not os.path.exists("{}/inputs/{}".format(targetDir, os.path.basename(file))):
+                    os.symlink("{}/{}".format(linkStore, hash), "{}/inputs/{}".format(targetDir, os.path.basename(file)))
+
+        # copy outputs
         for file, hash in job['outputs'].items():
             if not os.path.exists("{}/{}".format(targetStore, hash)):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
             os.symlink("{}/{}".format(linkStore, hash), "{}/outputs/{}".format(targetDir, os.path.basename(file)))
-
-        copyFilesToExternal(job['deps'], targetDir, targetStore, dstore)
 
 def collectJobScripts(jobsets, scripts=[]):
     ''' Collect all jobs scripts
     '''
     for _, job in jobsets.items():
         scripts.append(job['jobScript'])
-        scripts = collectJobScripts(job['deps'], scripts)
 
     return scripts
 

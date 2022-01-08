@@ -29,27 +29,27 @@ def cmdBuild(cfgnix):
 def cmdList(config):
     '''List all jobs in project
     '''
-    for job in fspx.findAllJobs(config['jobsets']):
-        print(job['name'])
+    for name, _ in config['jobsets'].items():
+        print(name)
 
 def cmdCheck(config):
     '''Check if job results are valid
     '''
 
-    jobs, valid = fspx.checkJobset(config['jobsets'], config['dstore'], recalc=[])
+    jobs, valid = fspx.checkJobset(config['deps'], config['dstore'], recalc=[])
 
     if not valid:
         print("The following jobs need to be re-run:")
 
         for j in jobs:
-            print(j['name'])
+            print(j)
 
     return jobs, valid
 
 def cmdShell(config, jobname, dstore):
     '''Start a shell in a job environment
     '''
-    job = fspx.findJob(config['jobsets'], jobname)
+    job = config['jobsets'][jobname]
 
     #workdir = os.path.expandvars(job['workdir'])
     workdir = job['workdir']
@@ -173,9 +173,9 @@ def main():
     elif args.command == "run":
 
         if args.job == None:
-            jobs, valid = fspx.checkJobset(config['jobsets'], config['dstore'], recalc=[])
+            jobs, valid = fspx.checkJobset(config['deps'], config['dstore'])
             if not valid:
-                fspx.runJobs(config['jobsets'], list(map(lambda x: x['name'], jobs)), config['dstore'], launcher = args.launcher)
+                fspx.runJobs(config['jobsets'], jobs, config['dstore'], launcher = args.launcher)
         else:
             fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], launcher = args.launcher)
 
