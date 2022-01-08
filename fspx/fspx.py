@@ -208,7 +208,7 @@ def linkInputsToWorkdir(inputs, workdir, dstore):
         os.symlink(storeName, tmpName)
 
 
-def runJobs(jobset, jobnames, dstore, launcher=None):
+def runJobs(jobset, jobnames, dstore, global_launcher=None):
     """Run a list of jobs
     """
     for name in jobnames:
@@ -222,8 +222,10 @@ def runJobs(jobset, jobnames, dstore, launcher=None):
         linkInputsToWorkdir(inputs, workdir, dstore)
 
         # Run job
-        if launcher == None:
+        if global_launcher == None:
             launcher = job['jobLauncher']
+        else:
+            launcher = global_launcher
 
         print("Running job {}, {} ...".format(name, job['runScript']))
         ret = os.system("{} {} \"{}\"".format(job['runScript'], job['workdir'], launcher))
