@@ -19,6 +19,24 @@ def hashExists(sha256, dstore):
 
     return True
 
+def link_to_store(path: str, hash: str, dstore: str, relative: bool = True) -> None:
+    """Create a tracked linked to data store
+    """
+
+    store_path = "{}/{}".format(dstore, hash)
+
+    if os.path.islink(path):
+        os.remove(path)
+
+    if relative:
+        store_path = os.path.relpath(store_path, os.path.dirname(path))
+    else:
+        store_path = os.path.realpath(store_path)
+
+    os.symlink(store_path, path)
+
+
+
 def hash_from_store_path(path: str, dstore: str) -> str:
 
     path = os.path.realpath(path)
@@ -49,6 +67,7 @@ def importPaths(paths, dstore, prefix=""):
         if not os.path.exists(storePath):
             print("Importing file {} into {} ({})".format(name, dstore, sha256))
             os.system("cp {} {}".format(p, storePath))
+            os.system("chmod -w {}".format(storePath))
 
         return sha256
 

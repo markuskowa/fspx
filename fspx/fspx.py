@@ -80,16 +80,6 @@ def importOutputPaths(job, name, dstore):
 
     return storeHashes
 
-def linkPath(prefix, path, storePath):
-    """Create a symlink into store
-    """
-
-    path = "{}{}".format(prefix, path)
-    if os.path.islink(path):
-        os.remove(path)
-
-    os.symlink(storePath, path)
-
 def readManifest(name: str) -> dict:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
@@ -201,11 +191,7 @@ def linkInputsToWorkdir(inputs, workdir, dstore):
 
     for inp, hash in inputs.items():
         tmpName = "{}/inputs/{}".format(workdir, os.path.basename(to_outpath(inp)))
-        storeName = "{}/{}".format(os.path.realpath(dstore), hash)
-        if os.path.islink(tmpName):
-            os.remove(tmpName)
-
-        os.symlink(storeName, tmpName)
+        cas.link_to_store(tmpName , hash, dstore)
 
 
 def runJobs(jobset, jobnames, dstore, global_launcher=None):
@@ -250,10 +236,7 @@ def runJobs(jobset, jobnames, dstore, global_launcher=None):
 
         for file, hash in outputs.items():
             outName = "outputs/{}".format(file)
-            storeName = "{}/{}".format(os.path.realpath(dstore), hash)
-            if os.path.islink(outName):
-                os.remove(outName)
-            os.symlink(storeName, outName)
+            cas.link_to_store(outName, hash, dstore)
 
         print()
 
@@ -288,7 +271,6 @@ def packageJob(name, job):
 def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
     '''Export files for archived jobset
     '''
-    linkStore = os.path.relpath(targetStore, targetDir + "/io")
     for _, job in jobsets.items():
 
         # copy inputs
@@ -299,14 +281,16 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
                     os.system("cp {}/{} {}".format(dstore, hash, targetStore))
 
                 # create symlink to dstore
-                if not os.path.exists("{}/inputs/{}".format(targetDir, os.path.basename(file))):
-                    os.symlink("{}/{}".format(linkStore, hash), "{}/inputs/{}".format(targetDir, os.path.basename(file)))
+                inputName = "{}/inputs/{}".format(targetDir, os.path.basename(file))
+                if not os.path.exists(inputName):
+                    cas.link_to_store(inputName, hash, targetStore)
 
         # copy outputs
         for file, hash in job['outputs'].items():
+            # copy file to to taget
             if not os.path.exists("{}/{}".format(targetStore, hash)):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
-            os.symlink("{}/{}".format(linkStore, hash), "{}/outputs/{}".format(targetDir, os.path.basename(file)))
+            cas.link_to_store("{}/outputs/{}".format(targetDir, os.path.basename(file)), hash, targetStore)
 
 def collectJobScripts(jobsets, scripts=[]):
     ''' Collect all jobs scripts
