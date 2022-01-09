@@ -4,14 +4,14 @@ import os
 import hashlib
 
 
-def hashFile(path):
+def hash_file(path: str) -> str:
     """Calculate the sha256 of a file
     """
     with open(path, "rb") as f:
         bytes = f.read()
         return hashlib.sha256(bytes).hexdigest();
 
-def hashExists(sha256, dstore):
+def hash_exists(sha256: str, dstore: str) -> bool:
     storePath = "{}/{}".format(dstore, sha256)
 
     if not os.path.exists(storePath):
@@ -52,15 +52,15 @@ def hash_from_store_path(path: str, dstore: str) -> str:
 
     return os.path.basename(path)
 
-def importPaths(paths, dstore, prefix=""):
+def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str]:
     """Copy a list of files into the dstore.
 
         return: list of sha256 hashes
     """
 
     # move file into store, helper function
-    def moveToStore(p):
-        sha256 = hashFile(p)
+    def moveToStore(p: str) -> str:
+        sha256 = hash_file(p)
         name = os.path.basename(p)
         storePath = "{}/{}".format(dstore, sha256)
 

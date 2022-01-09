@@ -190,7 +190,7 @@ def main():
         cmdExport(config, args.target_dir, args.target_store)
 
     elif args.command == "import":
-        cas.importPaths(args.file_names, config['dstore'])
+        cas.import_paths(args.file_names, config['dstore'])
 
 
     exit(0)

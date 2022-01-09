@@ -36,14 +36,14 @@ def importInputPaths(job: dict, name: str, dstore: str) -> dict:
         if not is_output(file):
             # import paths if needed
             if hash == None:
-                hash = cas.importPaths([file], dstore)
+                hash = cas.import_paths([file], dstore)
                 hash = hash[file]
-            elif not cas.hashExists(hash, dstore):
-                hash = cas.importPaths([file], dstore)
+            elif not cas.hash_exists(hash, dstore):
+                hash = cas.import_paths([file], dstore)
                 hash = hash[file]
         else:
             # import to check hash
-            hash = cas.importPaths([to_outpath(file)], dstore)
+            hash = cas.import_paths([to_outpath(file)], dstore)
             hash = hash[to_outpath(file)]
 
         # check manifest
@@ -73,7 +73,7 @@ def importOutputPaths(job, name, dstore):
     m = readManifest(name)
 
     # Import outputs into store
-    storeHashes = cas.importPaths(job['outputs'], dstore, prefix="{}/".format(job['workdir']))
+    storeHashes = cas.import_paths(job['outputs'], dstore, prefix="{}/".format(job['workdir']))
 
     m['outputs'] = storeHashes
     updateManifest(name, m)
@@ -124,7 +124,7 @@ def checkJob(name: str, job: dict, dstore: str) -> bool:
         if not file in manifest['outputs']:
             return False
 
-        if not cas.hashExists(manifest['outputs'][file], dstore):
+        if not cas.hash_exists(manifest['outputs'][file], dstore):
             return False
 
     # check if function is still valid
@@ -157,7 +157,7 @@ def checkJob(name: str, job: dict, dstore: str) -> bool:
 
             hash = cas.hash_from_store_path(to_outpath(file), dstore)
         else:
-            hash = cas.hashFile(file)
+            hash = cas.hash_file(file)
 
         if manifest['inputs'][file] != hash:
             return False
