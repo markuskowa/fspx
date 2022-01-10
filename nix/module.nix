@@ -14,6 +14,8 @@ let
             Input file names with optional hash.
             If the hash value is set to null, a changed input file will be re-imported
             into the data store. Note: only SHA256 base16 hashes are supported.
+	    If an input name starts with a colon it is interpreted as output
+	    produced by another job.
         '';
         default = {};
         example = literalExpression ''
@@ -39,7 +41,7 @@ let
 	type = with types; package;
 	description = ''
 	  Compute environment. A package or nix store path, providing and environment for a job.
-	  Changing the environment will invalidate the job.
+	  Changing the environment will cause recalculation the job.
 	'';
 	default = pkgs.coreutils;
 	example = pkg.octave;
@@ -49,7 +51,7 @@ let
 	type = types.str;
 	description = ''
 	  Optional launcher command used to launch the jobScript.
-	  This command is put in front of the jobScript.
+	  This command is put in front of the jobScript call.
 	  Note, that for batch jobs the launcher needs to wait
 	  for the completion of the job.
 	'';
@@ -61,7 +63,7 @@ let
 	type = types.package;
 	description = ''
 	  The job script. This needs to be a nix-store path
-	  Changing the jobScript will invalidate the job.
+	  Changing the jobScript will cause recalculation of the job.
 	'';
 	example = literalExpression ''
 	  pkgs.writeShellScript "interp" "octave inputs/interp.m";
@@ -72,7 +74,7 @@ let
 	type = with types; nullOr str;
 	description = ''
 	  The working directory for this job.
-          This defaults to the working directory of the project.
+          This defaults to the working directory of the project plus the job name.
 	'';
 	default = null;
       };
@@ -92,7 +94,7 @@ in {
     workdir = mkOption {
       type = types.str;
       description = ''
-	Default working directory base.
+	Default base working directory.
       '';
       default = builtins.getEnv "TMPDIR";
     };
@@ -164,7 +166,10 @@ in {
       inputsMap = builtins.listToAttrs (flatten (mapAttrsToList (name: job: (map (x: nameValuePair x name ) (attrNames job.inputs)) ) project.jobsets));
 
       deps = let
+	# Used to strip leading colon
+	# stripFirst :: str -> str
 	stripFirst = x: substring 1 (stringLength x) x;
+
 	# map input name to job name, remove original inputs, clear leading colon
 	# input2jobs :: attrs(input/hash) -> attrs(input/jobs)
 	inputs2jobs = inputs: listToAttrs (filter (x: x != null) (mapAttrsToList (input: hash:
