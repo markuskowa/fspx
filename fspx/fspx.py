@@ -21,14 +21,14 @@ def to_outpath(name: str) -> str:
         return name
 
 
-def importInputPaths(job: dict, name: str, dstore: str) -> dict:
+def import_input_paths(job: dict, name: str, dstore: str) -> dict:
     """ Import inputs for job into dstore and update job manifest
     """
 
     assert(type(job['inputs']) is dict)
 
     # read manifest
-    m = readManifest(name)
+    m = read_manifest(name)
     mvalid = True
 
     # find unhashed paths and import them
@@ -62,25 +62,25 @@ def importInputPaths(job: dict, name: str, dstore: str) -> dict:
     if not mvalid:
         m['outputs'] = {}
 
-    updateManifest(name, m)
+    update_manifest(name, m)
 
     return m['inputs']
 
-def importOutputPaths(job, name, dstore):
+def import_output_paths(job, name: str, dstore: str) -> dict[str, str] :
 
     assert(type(job['outputs']) is list)
 
-    m = readManifest(name)
+    m = read_manifest(name)
 
     # Import outputs into store
     storeHashes = cas.import_paths(job['outputs'], dstore, prefix="{}/".format(job['workdir']))
 
     m['outputs'] = storeHashes
-    updateManifest(name, m)
+    update_manifest(name, m)
 
     return storeHashes
 
-def readManifest(name: str) -> dict:
+def read_manifest(name: str) -> dict:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
@@ -90,7 +90,7 @@ def readManifest(name: str) -> dict:
 
     return m
 
-def updateManifest(name, data):
+def update_manifest(name: str, data) -> None:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
@@ -102,19 +102,19 @@ def updateManifest(name, data):
 
     utils.writeJson(mfile, m)
 
-def findAllJobs(jobsets, jobs = []):
+def find_all_jobs(jobsets, jobs = []):
 
     for name, job in jobsets.items():
-        findAllJobs(job['deps'], jobs = jobs)
+        find_all_jobs(job['deps'], jobs = jobs)
         jobs.append({ 'name' : name, 'job' : job})
 
     return jobs
 
-def checkJob(name: str, job: dict, dstore: str) -> bool:
+def check_job(name: str, job: dict, dstore: str) -> bool:
     """Check if the current config matches the manifest
     """
 
-    manifest = readManifest(name)
+    manifest = read_manifest(name)
 
     if not "outputs" in manifest:
         return False
@@ -164,7 +164,7 @@ def checkJob(name: str, job: dict, dstore: str) -> bool:
 
     return True
 
-def checkJobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool]:
+def check_jobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool]:
     """Check all jobsets and return invalidated ones
     """
 
@@ -172,10 +172,10 @@ def checkJobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool
     for name, job in jobset.items():
         if name not in recalc:
             # check children
-            recalc, cvalid = checkJobset(job['deps'], dstore, recalc)
+            recalc, cvalid = check_jobset(job['deps'], dstore, recalc)
 
             valid = cvalid
-            if not checkJob(name, job, dstore):
+            if not check_job(name, job, dstore):
                 valid = False
                 recalc.append(name)
         else:
@@ -183,7 +183,7 @@ def checkJobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], bool
 
     return recalc, valid
 
-def linkInputsToWorkdir(inputs, workdir, dstore):
+def link_inputs_to_workdir(inputs: dict[str, str], workdir: str, dstore:str ) -> None:
     try:
         os.makedirs(workdir + "/inputs")
     except FileExistsError:
@@ -194,7 +194,7 @@ def linkInputsToWorkdir(inputs, workdir, dstore):
         cas.link_to_store(tmpName , hash, dstore)
 
 
-def runJobs(jobset, jobnames, dstore, global_launcher=None):
+def run_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> None:
     """Run a list of jobs
     """
     for name in jobnames:
@@ -202,10 +202,10 @@ def runJobs(jobset, jobnames, dstore, global_launcher=None):
         workdir = os.path.expandvars(job['workdir'])
 
         # Import inputs
-        inputs = importInputPaths(job, name, dstore)
+        inputs = import_input_paths(job, name, dstore)
 
         # Link inputs into workdir
-        linkInputsToWorkdir(inputs, workdir, dstore)
+        link_inputs_to_workdir(inputs, workdir, dstore)
 
         # Run job
         if global_launcher == None:
@@ -223,7 +223,7 @@ def runJobs(jobset, jobnames, dstore, global_launcher=None):
         print("Importing outputs of job {}".format(name))
 
         try:
-            outputs = importOutputPaths(job, name, dstore)
+            outputs = import_output_paths(job, name, dstore)
         except FileNotFoundError as not_found:
             print("Output {} missing!".format(not_found.filename))
             return
@@ -241,11 +241,11 @@ def runJobs(jobset, jobnames, dstore, global_launcher=None):
         print()
 
 
-def packageJob(name, job):
+def package_job(name: str, job):
     '''Re-write jon definition for export/archival
     '''
 
-    manifest = readManifest(name)
+    manifest = read_manifest(name)
 
     # fix inputs
     inputs = {}
@@ -268,7 +268,7 @@ def packageJob(name, job):
 
     return job
 
-def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
+def copy_files_to_external(jobsets, targetDir: str, targetStore: str, dstore: str) -> None:
     '''Export files for archived jobset
     '''
     for _, job in jobsets.items():
@@ -292,7 +292,7 @@ def copyFilesToExternal(jobsets, targetDir, targetStore, dstore):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
             cas.link_to_store("{}/outputs/{}".format(targetDir, os.path.basename(file)), hash, targetStore)
 
-def collectJobScripts(jobsets, scripts=[]):
+def collect_job_scripts(jobsets, scripts: list[str] = []) -> list[str]:
     ''' Collect all jobs scripts
     '''
     for _, job in jobsets.items():

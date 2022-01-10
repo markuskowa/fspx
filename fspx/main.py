@@ -36,7 +36,7 @@ def cmd_check(config) -> tuple[list[str], bool]:
     '''Check if job results are valid
     '''
 
-    jobs, valid = fspx.checkJobset(config['deps'], config['dstore'], recalc=[])
+    jobs, valid = fspx.check_jobset(config['deps'], config['dstore'], recalc=[])
 
     if not valid:
         print("The following jobs need to be re-run:")
@@ -56,8 +56,8 @@ def cmd_shell(config, jobname: str, dstore: str) -> None:
 
     # Import inputs
     print("Import and link inputs...")
-    inputs = fspx.importInputPaths(job, jobname, dstore)
-    fspx.linkInputsToWorkdir(inputs, workdir, dstore)
+    inputs = fspx.import_input_paths(job, jobname, dstore)
+    fspx.link_inputs_to_workdir(inputs, workdir, dstore)
 
     print("Run nix-shell...")
     os.system("cd {0}; nix-shell -p {1}".format(workdir, job['env']))
@@ -70,7 +70,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
     # Copy config file and update hashes
     jobsets = {}
     for name, job in config['jobsets'].items():
-        jobsets[name] = fspx.packageJob(name, job)
+        jobsets[name] = fspx.package_job(name, job)
 
     config['jobsets'] = jobsets
 
@@ -89,7 +89,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
     except FileExistsError:
         None
 
-    fspx.copyFilesToExternal(config['jobsets'], toDir, targetStore, config['dstore'])
+    fspx.copy_files_to_external(config['jobsets'], toDir, targetStore, config['dstore'])
 
     # Fix dstore
     config['dstore'] = os.path.relpath(targetStore, toDir)
@@ -97,7 +97,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 
     # Create NAR
     print("Save job scripts to NAR archive...")
-    allJobScripts = fspx.collectJobScripts(config['jobsets'])
+    allJobScripts = fspx.collect_job_scripts(config['jobsets'])
     os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
 
 def cmd_init() -> None:
@@ -173,11 +173,11 @@ def main():
     elif args.command == "run":
 
         if args.job == None:
-            jobs, valid = fspx.checkJobset(config['deps'], config['dstore'])
+            jobs, valid = fspx.check_jobset(config['deps'], config['dstore'])
             if not valid:
-                fspx.runJobs(config['jobsets'], jobs, config['dstore'], global_launcher = args.launcher)
+                fspx.run_jobs(config['jobsets'], jobs, config['dstore'], global_launcher = args.launcher)
         else:
-            fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], global_launcher = args.launcher)
+            fspx.run_jobs(config['jobsets'], [ args.job ], config['dstore'], global_launcher = args.launcher)
 
     elif args.command == "shell":
         cmd_shell(config, args.job, config['dstore'])
