@@ -14,7 +14,7 @@ cfgPath = fspx.cfgPath
 instDir = "nix/"
 
 
-def cmdBuild(cfgnix):
+def cmd_build(cfgnix: str) -> int:
     '''Build the project configuration from nix configuration file
     '''
 
@@ -26,13 +26,13 @@ def cmdBuild(cfgnix):
     ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
     return os.waitstatus_to_exitcode(ret)
 
-def cmdList(config):
+def cmd_list(config) -> None:
     '''List all jobs in project
     '''
     for name, _ in config['jobsets'].items():
         print(name)
 
-def cmdCheck(config):
+def cmd_check(config) -> tuple[list[str], bool]:
     '''Check if job results are valid
     '''
 
@@ -46,7 +46,7 @@ def cmdCheck(config):
 
     return jobs, valid
 
-def cmdShell(config, jobname, dstore):
+def cmd_shell(config, jobname: str, dstore: str) -> None:
     '''Start a shell in a job environment
     '''
     job = config['jobsets'][jobname]
@@ -63,7 +63,7 @@ def cmdShell(config, jobname, dstore):
     os.system("cd {0}; nix-shell -p {1}".format(workdir, job['env']))
 
 
-def cmdExport(config, toDir, targetStore):
+def cmd_export(config, toDir: str, targetStore: str) -> None:
     '''Export the project
     '''
 
@@ -100,7 +100,7 @@ def cmdExport(config, toDir, targetStore):
     allJobScripts = fspx.collectJobScripts(config['jobsets'])
     os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
 
-def cmdInit():
+def cmd_init() -> None:
 
     # create directories
     dirs = [ 'inputs', 'src' ];
@@ -152,21 +152,21 @@ def main():
         exit(1)
 
     elif args.command == "init":
-        cmdInit()
+        cmd_init()
         exit(0)
 
     elif args.command == "build":
-        ret = cmdBuild(args.config_file)
+        ret = cmd_build(args.config_file)
         exit(ret)
 
     # Read the config. Every command from here on will need it
     config = utils.readJson("{}/cfg/project.json".format(cfgPath))
 
     if args.command == "list":
-        cmdList(config)
+        cmd_list(config)
 
     elif args.command == "check":
-        jobs, valid = cmdCheck(config)
+        jobs, valid = cmd_check(config)
         if not valid:
             exit(1)
 
@@ -180,14 +180,14 @@ def main():
             fspx.runJobs(config['jobsets'], [ args.job ], config['dstore'], global_launcher = args.launcher)
 
     elif args.command == "shell":
-        cmdShell(config, args.job, config['dstore'])
+        cmd_shell(config, args.job, config['dstore'])
 
     elif args.command == "export":
-        if not cmdCheck(config):
+        if not cmd_check(config):
             print("Project data is not valid. Can not export project.")
             exit(1)
 
-        cmdExport(config, args.target_dir, args.target_store)
+        cmd_export(config, args.target_dir, args.target_store)
 
     elif args.command == "import":
         cas.import_paths(args.file_names, config['dstore'])
