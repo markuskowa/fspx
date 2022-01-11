@@ -111,6 +111,14 @@ def cmd_init() -> None:
         except FileExistsError:
             None
 
+def cmd_run(config, job: str = None, launcher: str = None) -> None:
+    if job == None:
+        jobs, valid = fspx.check_jobset(config['deps'], config['dstore'])
+        if not valid:
+            fspx.run_jobs(config['jobsets'], jobs, config['dstore'], global_launcher = launcher)
+    else:
+        fspx.run_jobs(config['jobsets'], [ job ], config['dstore'], global_launcher = launcher)
+
 #
 # Main
 #
@@ -166,18 +174,12 @@ def main():
         cmd_list(config)
 
     elif args.command == "check":
-        jobs, valid = cmd_check(config)
+        _, valid = cmd_check(config)
         if not valid:
             exit(1)
 
     elif args.command == "run":
-
-        if args.job == None:
-            jobs, valid = fspx.check_jobset(config['deps'], config['dstore'])
-            if not valid:
-                fspx.run_jobs(config['jobsets'], jobs, config['dstore'], global_launcher = args.launcher)
-        else:
-            fspx.run_jobs(config['jobsets'], [ args.job ], config['dstore'], global_launcher = args.launcher)
+        cmd_run(config, args.job, args.launcher)
 
     elif args.command == "shell":
         cmd_shell(config, args.job, config['dstore'])

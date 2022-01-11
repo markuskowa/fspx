@@ -70,6 +70,25 @@ let
 	'';
       };
 
+      checkScript = mkOption {
+	type = with types; package;
+	description = ''
+	  Optional check script, veryfying the validity of the outputs.
+	'';
+	default = pkgs.writeScript "check" ''
+	  cd "$1"
+	  shift 1
+
+	  printf "Checking for outputs...\n"
+	  while (("$#" )); do
+	    if [ ! -f "$1" ]; then
+	      exit 1
+	    fi
+	    shift 1
+	  done
+	'';
+      };
+
       workdir = mkOption {
 	type = with types; nullOr str;
 	description = ''

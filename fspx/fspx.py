@@ -219,6 +219,11 @@ def run_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> 
             print("Running job {} failed!".format(name))
             exit(1)
 
+        ret = os.system("{} {} {}".format(job['checkScript'], job['workdir'], " ".join(job['outputs'])))
+        if os.waitstatus_to_exitcode(ret) != 0:
+            print("Check for {} failed!".format(name))
+            exit(1)
+
         # Import outputs
         print("Importing outputs of job {}".format(name))
 
