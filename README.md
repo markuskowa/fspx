@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022 Markus Kowalewski
+
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 # FSPX - Functional Scientific Project Execution
 Scientific calculations are very often carried out in an iterative fashion.
 However, in a more complex project it can become difficult to recreate all steps

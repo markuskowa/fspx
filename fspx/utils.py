@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2022 Markus Kowalewski
+#
 # SPDX-License-Identifier: GPL-3.0-only
 
 import json
