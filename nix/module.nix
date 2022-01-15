@@ -8,7 +8,7 @@ with lib;
 let
   cfg = config;
 
-  jobsetType = with types; attrsOf ( submodule ({...} : {
+  jobsetType = with types; attrsOf ( submodule (_ : {
     options = {
       inputs = mkOption {
 	type = with types; attrsOf (nullOr (strMatching "[0-9A-Fa-f]{64}"));
@@ -151,12 +151,12 @@ in {
     # Make sure job IDs/names are unique
     # Make sure all outputs have unique names
     outPath = let
-      fixJobsets = jobset: mapAttrs (name: job:
+      fixJobsets = mapAttrs (name: job:
 	  job // {
 	    runScript = nixShell job;
 	  } // optionalAttrs (job.workdir == null) {
 	    workdir = cfg.workdir + "/" + name;
-	  }) jobset;
+	  });
 
       nixShell = job: pkgs.writeScript "nixShell" ''
         #!/usr/bin/env nix-shell
@@ -171,7 +171,7 @@ in {
         $launcher ${job.jobScript}
       '';
 
-      project = (builtins.removeAttrs (config // { jobsets = fixJobsets config.jobsets; }) [ "outPath" "_module"]);
+      project = builtins.removeAttrs (config // { jobsets = fixJobsets config.jobsets; }) [ "outPath" "_module"];
 
       allOutputs = let
 	collectOutputs = x: flatten (mapAttrsToList (name: job: job.outputs ) x);
@@ -208,11 +208,11 @@ in {
 
 	# find jobs where outputs are not used by any other job
         # filterTopLevel :: attrs(jobset) -> attrs(jobset)
-	filterTopLevel = jobsets: filterAttrs (name: job:
+	filterTopLevel = filterAttrs (name: job:
 	      foldr (a: b:
 		(! (hasAttr ":${a}" (filterAttrs (n: j: j != name) inputsMap))) && b)
 	      true job.outputs
-	    ) jobsets;
+	    );
 
 	# Create dependency tree
 	# collectDeps :: attrs(jobset) -> attrs(deps)
