@@ -95,7 +95,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 
     # Fix dstore
     config['dstore'] = os.path.relpath(targetStore, toDir)
-    utils.writeJson("{}/config.json".format(toDir), config)
+    utils.write_json("{}/config.json".format(toDir), config)
 
     # Create NAR
     print("Save job scripts to NAR archive...")
@@ -170,7 +170,7 @@ def main():
         exit(ret)
 
     # Read the config. Every command from here on will need it
-    config = utils.readJson("{}/cfg/project.json".format(cfgPath))
+    config = utils.read_json("{}/cfg/project.json".format(cfgPath))
 
     if args.command == "list":
         cmd_list(config)

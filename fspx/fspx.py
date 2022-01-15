@@ -86,7 +86,7 @@ def read_manifest(name: str) -> dict:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
-        m = utils.readJson(mfile)
+        m = utils.read_json(mfile)
     else:
         m = {'inputs':{}, 'function':"", 'outputs':{}}
 
@@ -96,13 +96,13 @@ def update_manifest(name: str, data) -> None:
 
     mfile = "{}/{}.manifest".format(cfgPath, name)
     if os.path.exists(mfile):
-        m = utils.readJson(mfile)
+        m = utils.read_json(mfile)
     else:
         m = {}
 
     m = { **m, **data }
 
-    utils.writeJson(mfile, m)
+    utils.write_json(mfile, m)
 
 def find_all_jobs(jobsets, jobs = []):
 
