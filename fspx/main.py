@@ -121,6 +121,17 @@ def cmd_run(config, job: str = None, launcher: str = None) -> None:
     else:
         fspx.run_jobs(config['jobsets'], [ job ], config['dstore'], global_launcher = launcher)
 
+def cmd_validate(config, job: str = None, launcher: str = None) -> None:
+
+    # make sure we have a valid job set by attempting to run all jobs
+    cmd_run(config, launcher = launcher)
+
+    if job == None:
+        all_jobs = fspx.find_all_jobs(config['deps'])
+        fspx.validate_jobs(config['jobsets'], map(lambda j: j["name"], all_jobs), config['dstore'], global_launcher = launcher)
+    else:
+        fspx.validate_jobs(config['jobsets'], [ job ], config['dstore'], global_launcher = launcher)
+
 #
 # Main
 #
@@ -144,6 +155,10 @@ def main():
     argsRun = cmdArgs.add_parser("run", help="Run jobs")
     argsRun.add_argument("job", nargs='?', help="Job to run. If ommited all invalidated jobs be run.")
     argsRun.add_argument("-l", "--launcher", help="Override job launcher.")
+
+    argsValidate = cmdArgs.add_parser("validate", help="Validate jobs by re-running them")
+    argsValidate.add_argument("job", nargs='?', help="Jobs to run. If ommited all jobs will be run.")
+    argsValidate.add_argument("-l", "--launcher", help="Override job launcher.")
 
     argsShell = cmdArgs.add_parser("shell", help="Enter an interactive job shell environment.")
     argsShell.add_argument("job", help="Job to pick shell from.")
@@ -182,6 +197,9 @@ def main():
 
     elif args.command == "run":
         cmd_run(config, args.job, args.launcher)
+
+    elif args.command == "validate":
+        cmd_validate(config, args.job, args.launcher)
 
     elif args.command == "shell":
         cmd_shell(config, args.job, config['dstore'])

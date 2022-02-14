@@ -195,58 +195,93 @@ def link_inputs_to_workdir(inputs: dict[str, str], workdir: str, dstore:str ) ->
         tmpName = "{}/inputs/{}".format(workdir, os.path.basename(to_outpath(inp)))
         cas.link_to_store(tmpName , hash, dstore)
 
+def validate_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> bool:
+    """Validate jobs
+    """
+
+    # Run all jobs in list
+    for name in jobnames:
+        print("Verify job {}".format(name))
+        job = jobset[name]
+        job["workdir"] = job["workdir"].strip('/') + "-validate"
+
+        run_job(name, job, dstore, global_launcher)
+
+        # compare with outputs from manifest
+        outputs_manifest = read_manifest(name)["outputs"]
+        for output in job["outputs"]:
+            print("Verify output {}".format(output))
+            hash = cas.hash_file("{}/{}".format(job['workdir'], output))
+
+            if outputs_manifest[output] != hash:
+                print("Output {} of job {} can not be reproduced".format(output, name))
+                return False
+
+            os.system("rm -r {}".format(job['workdir']))
+
+    return True
+
+def run_job(name: str, job, dstore: str, global_launcher=None) -> None:
+    """ Run a single job
+    """
+    workdir = os.path.expandvars(job['workdir'])
+
+    # Import inputs
+    inputs = import_input_paths(job, name, dstore)
+
+    # Link inputs into workdir
+    link_inputs_to_workdir(inputs, workdir, dstore)
+
+    # Run job
+    if global_launcher == None:
+        launcher = job['jobLauncher']
+    else:
+        launcher = global_launcher
+
+    print("Running job {}, {} ...".format(name, job['runScript']))
+    ret = os.system("{} {} \"{}\"".format(job['runScript'], job['workdir'], launcher))
+    if os.waitstatus_to_exitcode(ret) != 0:
+        print("Running job {} failed!".format(name))
+        exit(1)
+
+    ret = os.system("{} {} {}".format(job['checkScript'], job['workdir'], " ".join(job['outputs'])))
+    if os.waitstatus_to_exitcode(ret) != 0:
+        print("Check for {} failed!".format(name))
+        exit(1)
+
+
+def import_outputs(job, name, dstore):
+    """Import outputs of a job
+    """
+
+    print("Importing outputs of job {}".format(name))
+
+    try:
+        outputs = import_output_paths(job, name, dstore)
+    except FileNotFoundError as not_found:
+        print("Output {} missing!".format(not_found.filename))
+        return
+
+    # Link outputs into dstore
+    try:
+        os.makedirs("outputs")
+    except FileExistsError:
+        None
+
+    for file, hash in outputs.items():
+        outName = "outputs/{}".format(file)
+        cas.link_to_store(outName, hash, dstore)
+
+    print()
+
 
 def run_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> None:
     """Run a list of jobs
     """
     for name in jobnames:
         job = jobset[name]
-        workdir = os.path.expandvars(job['workdir'])
-
-        # Import inputs
-        inputs = import_input_paths(job, name, dstore)
-
-        # Link inputs into workdir
-        link_inputs_to_workdir(inputs, workdir, dstore)
-
-        # Run job
-        if global_launcher == None:
-            launcher = job['jobLauncher']
-        else:
-            launcher = global_launcher
-
-        print("Running job {}, {} ...".format(name, job['runScript']))
-        ret = os.system("{} {} \"{}\"".format(job['runScript'], job['workdir'], launcher))
-        if os.waitstatus_to_exitcode(ret) != 0:
-            print("Running job {} failed!".format(name))
-            exit(1)
-
-        ret = os.system("{} {} {}".format(job['checkScript'], job['workdir'], " ".join(job['outputs'])))
-        if os.waitstatus_to_exitcode(ret) != 0:
-            print("Check for {} failed!".format(name))
-            exit(1)
-
-        # Import outputs
-        print("Importing outputs of job {}".format(name))
-
-        try:
-            outputs = import_output_paths(job, name, dstore)
-        except FileNotFoundError as not_found:
-            print("Output {} missing!".format(not_found.filename))
-            return
-
-        # Link outputs into dstore
-        try:
-            os.makedirs("outputs")
-        except FileExistsError:
-            None
-
-        for file, hash in outputs.items():
-            outName = "outputs/{}".format(file)
-            cas.link_to_store(outName, hash, dstore)
-
-        print()
-
+        run_job(name, job, dstore, global_launcher)
+        import_outputs(job, name, dstore)
 
 def package_job(name: str, job):
     '''Re-write jon definition for export/archival
