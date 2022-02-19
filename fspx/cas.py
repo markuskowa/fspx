@@ -11,7 +11,10 @@ def hash_file(path: str) -> str:
     """
     with open(path, "rb") as f:
         bytes = f.read()
-        return hashlib.sha256(bytes).hexdigest();
+        return hash_data(bytes)
+
+def hash_data(bytes) -> str:
+    return hashlib.sha256(bytes).hexdigest();
 
 def hash_exists(sha256: str, dstore: str) -> bool:
     storePath = "{}/{}".format(dstore, sha256)
@@ -37,10 +40,9 @@ def link_to_store(path: str, hash: str, dstore: str, relative: bool = True) -> N
 
     os.symlink(store_path, path)
 
-
-
 def hash_from_store_path(path: str, dstore: str) -> str:
-
+    """Extract file name (hash) from store path
+    """
     path = os.path.realpath(path)
     dstore = os.path.realpath(dstore)
 
@@ -54,6 +56,32 @@ def hash_from_store_path(path: str, dstore: str) -> str:
 
     return os.path.basename(path)
 
+def move_to_store(path: str, dstore: str) -> str:
+    sha256 = hash_file(path)
+    name = os.path.basename(path)
+    storePath = "{}/{}".format(dstore, sha256)
+
+    if not os.path.exists(storePath):
+        print("Importing file {} into {} ({})".format(name, dstore, sha256))
+        os.system("cp {} {}".format(path, storePath))
+        os.system("chmod -w {}".format(storePath))
+
+    return sha256
+
+def import_data(data, dstore: str) -> str:
+    hash = hash_data(data)
+
+    if not hash_exists(hash, dstore):
+        storePath = "{}/{}".format(dstore, hash)
+        print("Importing {} into {}".format(hash, dstore))
+
+        with open(storePath, "wb") as f:
+            f.write(data)
+
+        os.system("chmod -w {}".format(storePath))
+
+    return hash
+
 def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str]:
     """Copy a list of files into the dstore.
 
@@ -61,17 +89,6 @@ def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str
     """
 
     # move file into store, helper function
-    def moveToStore(p: str) -> str:
-        sha256 = hash_file(p)
-        name = os.path.basename(p)
-        storePath = "{}/{}".format(dstore, sha256)
-
-        if not os.path.exists(storePath):
-            print("Importing file {} into {} ({})".format(name, dstore, sha256))
-            os.system("cp {} {}".format(p, storePath))
-            os.system("chmod -w {}".format(storePath))
-
-        return sha256
 
     pathkv = {}
 
@@ -93,10 +110,10 @@ def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str
         try:
             idx = p.index(dstore)
         except ValueError:
-            hash = moveToStore(p)
+            hash = move_to_store(p)
         else:
             if idx > 0:
-                hash = moveToStore(p)
+                hash = move_to_store(p)
             else:
                 hash = os.path.basename(p)
 

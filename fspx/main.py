@@ -4,6 +4,7 @@
 
 import os
 import argparse
+import subprocess
 
 from . import utils
 from . import fspx
@@ -100,7 +101,19 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
     # Create NAR
     print("Save job scripts to NAR archive...")
     allJobScripts = fspx.collect_job_scripts(config['jobsets'])
-    os.system("nix-store --export $(nix-store -qR {}) > {}/jobScripts.nar".format(" ".join(allJobScripts), toDir))
+    nar_dir = "{}/nar".format(toDir)
+    os.mkdir(nar_dir)
+
+    out_paths = os.popen("nix-store -qR {}".format(" ".join(allJobScripts), toDir), 'r').read()
+
+    for path in out_paths.split('\n'):
+        process = subprocess.Popen(['nix-store', '--export', path],
+                     stdout=subprocess.PIPE,
+                     stderr=subprocess.PIPE)
+        nar_data, _ = process.communicate()
+        hash = cas.import_data(nar_data, targetStore)
+        cas.link_to_store("{}/{}.nar".format(nar_dir, os.path.basename(path)), hash, targetStore)
+
 
 def cmd_init() -> None:
 
