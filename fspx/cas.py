@@ -110,10 +110,10 @@ def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str
         try:
             idx = p.index(dstore)
         except ValueError:
-            hash = move_to_store(p)
+            hash = move_to_store(p, dstore)
         else:
             if idx > 0:
-                hash = move_to_store(p)
+                hash = move_to_store(p, dstore)
             else:
                 hash = os.path.basename(p)
 
