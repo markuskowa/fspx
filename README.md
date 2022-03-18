@@ -24,7 +24,7 @@ changes, all jobs and dependent jobs need to be recalculated.
 ## Usage
 In the first step we need to create a config file for the project. The config makes
 use of the nix module system:
-```
+```nix
 { pkgs, ... } :
 {
   workdir = "/tmp/fspx";
