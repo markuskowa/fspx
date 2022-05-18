@@ -18,7 +18,7 @@ def hash_data(bytes) -> str:
     return hashlib.sha256(bytes).hexdigest()
 
 def hash_exists(sha256: str, dstore: str) -> bool:
-    storePath = "{}/{}".format(dstore, sha256)
+    storePath = os.path.join(dstore, sha256)
 
     if not os.path.exists(storePath):
         return False
@@ -37,7 +37,7 @@ def link_to_store(path: str, hash: str, dstore: str, relative: bool = True, gcro
     """Create a tracked link to data store
     """
 
-    store_path = "{}/{}".format(dstore, hash)
+    store_path = os.path.join(dstore, hash)
 
     if os.path.islink(path):
         os.remove(path)
@@ -51,7 +51,7 @@ def link_to_store(path: str, hash: str, dstore: str, relative: bool = True, gcro
 
     # hash/link path hash -> link path
     if gcroot:
-        gc_path = "{}/gcroots/{}".format(dstore, hash)
+        gc_path = os.path.join(dstore, "gcroots", hash)
         try:
             os.makedirs(gc_path)
         except FileExistsError:
@@ -60,7 +60,7 @@ def link_to_store(path: str, hash: str, dstore: str, relative: bool = True, gcro
         link_hash = hashlib.sha1(path.encode()).digest()
         link_hash = base64.b64encode(link_hash, altchars=b"+-").decode("ascii")
 
-        link_name = "{}/{}".format(gc_path, link_hash)
+        link_name = os.path.join(gc_path, link_hash)
         if relative:
             link_path = os.path.relpath(path, gc_path)
         else:
@@ -110,11 +110,6 @@ def clean_garbage(dstore: str) -> int:
 
     return files_removed
 
-
-def verify_store_path(dstore: str, path) -> bool:
-    """Verify hash of a store path
-    """
-
 def verify_store(dstore: str) -> bool:
     """Verify all files in store
     """
@@ -123,7 +118,7 @@ def verify_store(dstore: str) -> bool:
     for file in os.scandir(dstore):
         if file.is_file():
             if is_valid_name(file.name):
-                hash = hash_file("{}/{}".format(dstore, file.name))
+                hash = hash_file(os.path.join(dstore, file.name))
                 if hash != file.name:
                     print("Invalid file found: {} has hash {}".format(file.name, hash))
                     valid = False
@@ -149,10 +144,12 @@ def hash_from_store_path(path: str, dstore: str) -> str:
 
     return os.path.basename(path)
 
-def move_to_store(path: str, dstore: str) -> str:
+def copy_to_store(path: str, dstore: str) -> str:
+    """Copy file into store
+    """
     sha256 = hash_file(path)
     name = os.path.basename(path)
-    storePath = "{}/{}".format(dstore, sha256)
+    storePath = os.path.join(dstore, sha256)
 
     if not os.path.exists(storePath):
         print("Importing file {} into {} ({})".format(name, dstore, sha256))
@@ -167,7 +164,7 @@ def import_data(data, dstore: str) -> str:
     hash = hash_data(data)
 
     if not hash_exists(hash, dstore):
-        storePath = "{}/{}".format(dstore, hash)
+        storePath = os.path.join(dstore, hash)
         print("Importing {} into {}".format(hash, dstore))
 
         with open(storePath, "wb") as f:
@@ -205,10 +202,10 @@ def import_paths(paths: list[str], dstore: str, prefix: str="") -> dict[str, str
         try:
             idx = p.index(dstore)
         except ValueError:
-            hash = move_to_store(p, dstore)
+            hash = copy_to_store(p, dstore)
         else:
             if idx > 0:
-                hash = move_to_store(p, dstore)
+                hash = copy_to_store(p, dstore)
             else:
                 hash = os.path.basename(p)
 

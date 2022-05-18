@@ -5,6 +5,7 @@
 import os
 import argparse
 import subprocess
+import json
 
 from . import utils
 from . import fspx
@@ -98,7 +99,12 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 
     # Fix dstore
     config['dstore'] = os.path.relpath(targetStore, toDir)
-    utils.write_json("{}/config.json".format(toDir), config)
+
+    cas.link_to_store(
+            os.path.join(toDir, "config.json"),
+            cas.import_data(json.dumps(config).encode(), targetStore),
+            targetStore,
+            gcroot = True)
 
     # Create NAR
     print("Save job scripts to NAR archive...")
@@ -114,7 +120,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
                      stderr=subprocess.PIPE)
         nar_data, _ = process.communicate()
         hash = cas.import_data(nar_data, targetStore)
-        cas.link_to_store("{}/{}.nar".format(nar_dir, os.path.basename(path)), hash, targetStore)
+        cas.link_to_store("{}/{}.nar".format(nar_dir, os.path.basename(path)), hash, targetStore, gcroot = True)
 
 
 def cmd_init() -> None:
@@ -182,14 +188,14 @@ def main():
     argsExport.add_argument("target_dir", help="Target directory. Must be empty.")
     argsExport.add_argument("target_store", help="Target data store directory.")
 
-    argsImport = cmdArgs.add_parser("import", help="Import files into data store manually.")
+    argsImport = cmdArgs.add_parser("store-import", help="Import files into data store manually.")
     argsImport.add_argument("file_name", help="File to import.")
     argsImport.add_argument("link_name", help="Link name to create")
 
-    argsCheckCAS = cmdArgs.add_parser("check-store", help="Check if store entries are valid")
+    argsCheckCAS = cmdArgs.add_parser("store-check", help="Check if store entries are valid")
     argsCheckCAS.add_argument("dstore", help="Path to data store")
 
-    argsGC = cmdArgs.add_parser("gc-store", help="garbage collect unlinked entries from data store")
+    argsGC = cmdArgs.add_parser("store-gc", help="garbage collect unlinked entries from data store")
     argsGC.add_argument("dstore", help="Path to data store")
 
     args = argsMain.parse_args()
@@ -233,15 +239,15 @@ def main():
 
         cmd_export(config, args.target_dir, args.target_store)
 
-    elif args.command == "import":
+    elif args.command == "store-import":
         paths = cas.import_paths([ args.file_name ], config['dstore'])
         cas.link_to_store(args.link_name, paths[args.file_name], config['dstore'], gcroot = True)
 
-    elif args.command == "check-store":
+    elif args.command == "store-check":
         if not cas.verify_store(args.dstore):
             exit(1)
 
-    elif args.command == "gc-store":
+    elif args.command == "store-gc":
         n = cas.clean_garbage(args.dstore)
         print("Removed {} files from data store".format(n))
 
