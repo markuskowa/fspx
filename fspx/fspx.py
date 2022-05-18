@@ -185,15 +185,15 @@ def check_jobset(jobset: dict, dstore: str, recalc = []) -> tuple[list[str], boo
 
     return recalc, valid
 
-def link_inputs_to_workdir(inputs: dict[str, str], workdir: str, dstore:str ) -> None:
+def link_inputs_to_dir(inputs: dict[str, str], dir: str, dstore: str, gcroots: bool = False) -> None:
     try:
-        os.makedirs(workdir + "/inputs")
+        os.makedirs(dir + "/inputs")
     except FileExistsError:
         None
 
     for inp, hash in inputs.items():
-        tmpName = "{}/inputs/{}".format(workdir, os.path.basename(to_outpath(inp)))
-        cas.link_to_store(tmpName , hash, dstore)
+        tmpName = "{}/inputs/{}".format(dir, os.path.basename(to_outpath(inp)))
+        cas.link_to_store(tmpName , hash, dstore, gcroot = gcroots)
 
 def validate_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> bool:
     """Validate jobs
@@ -228,9 +228,10 @@ def run_job(name: str, job, dstore: str, global_launcher=None) -> None:
 
     # Import inputs
     inputs = import_input_paths(job, name, dstore)
+    link_inputs_to_dir(inputs, "./", dstore, gcroots = True)
 
     # Link inputs into workdir
-    link_inputs_to_workdir(inputs, workdir, dstore)
+    link_inputs_to_dir(inputs, workdir, dstore)
 
     # Run job
     if global_launcher == None:
@@ -270,7 +271,7 @@ def import_outputs(job, name, dstore):
 
     for file, hash in outputs.items():
         outName = "outputs/{}".format(file)
-        cas.link_to_store(outName, hash, dstore)
+        cas.link_to_store(outName, hash, dstore, gcroot = True)
 
     print()
 
@@ -325,14 +326,14 @@ def copy_files_to_external(jobsets, targetDir: str, targetStore: str, dstore: st
                 # create symlink to dstore
                 inputName = "{}/inputs/{}".format(targetDir, os.path.basename(file))
                 if not os.path.exists(inputName):
-                    cas.link_to_store(inputName, hash, targetStore)
+                    cas.link_to_store(inputName, hash, targetStore, gcroot = True)
 
         # copy outputs
         for file, hash in job['outputs'].items():
             # copy file to to taget
             if not os.path.exists("{}/{}".format(targetStore, hash)):
                 os.system("cp {}/{} {}".format(dstore, hash, targetStore))
-            cas.link_to_store("{}/outputs/{}".format(targetDir, os.path.basename(file)), hash, targetStore)
+            cas.link_to_store("{}/outputs/{}".format(targetDir, os.path.basename(file)), hash, targetStore, gcroot = True)
 
 def collect_job_scripts(jobsets, scripts: list[str] = []) -> list[str]:
     ''' Collect all jobs scripts

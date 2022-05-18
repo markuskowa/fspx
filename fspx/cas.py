@@ -4,6 +4,7 @@
 
 import os
 import hashlib
+import base64
 
 
 def hash_file(path: str) -> str:
@@ -14,7 +15,7 @@ def hash_file(path: str) -> str:
         return hash_data(bytes)
 
 def hash_data(bytes) -> str:
-    return hashlib.sha256(bytes).hexdigest();
+    return hashlib.sha256(bytes).hexdigest()
 
 def hash_exists(sha256: str, dstore: str) -> bool:
     storePath = "{}/{}".format(dstore, sha256)
@@ -24,8 +25,16 @@ def hash_exists(sha256: str, dstore: str) -> bool:
 
     return True
 
-def link_to_store(path: str, hash: str, dstore: str, relative: bool = True) -> None:
-    """Create a tracked linked to data store
+def is_valid_name(hashed_name: str) -> bool:
+    """Check is filename is valid store file name
+    """
+    if len(os.path.basename(hashed_name)) == 64:
+        return True
+
+    return False
+
+def link_to_store(path: str, hash: str, dstore: str, relative: bool = True, gcroot: bool = False) -> None:
+    """Create a tracked link to data store
     """
 
     store_path = "{}/{}".format(dstore, hash)
@@ -39,6 +48,90 @@ def link_to_store(path: str, hash: str, dstore: str, relative: bool = True) -> N
         store_path = os.path.realpath(store_path)
 
     os.symlink(store_path, path)
+
+    # hash/link path hash -> link path
+    if gcroot:
+        gc_path = "{}/gcroots/{}".format(dstore, hash)
+        try:
+            os.makedirs(gc_path)
+        except FileExistsError:
+            None
+
+        link_hash = hashlib.sha1(path.encode()).digest()
+        link_hash = base64.b64encode(link_hash, altchars=b"+-").decode("ascii")
+
+        link_name = "{}/{}".format(gc_path, link_hash)
+        if relative:
+            link_path = os.path.relpath(path, gc_path)
+        else:
+            link_path = os.path.realpath(path)
+
+        try:
+            os.symlink(link_path, link_name)
+        except FileExistsError:
+            os.remove(link_name)
+            os.symlink(link_path, link_name)
+
+
+def clean_garbage(dstore: str) -> int:
+    """Run garbage collection, and delete unlinked and dead files
+    """
+
+    files_removed = 0
+    # clear gc roots first, weed out dead links
+    for file in os.scandir(os.path.join(dstore, "gcroots")):
+        if file.is_dir():
+            refcount = 0
+            for link in os.scandir(file.path):
+                if link.is_symlink():
+                    # it is a symlink
+                    if os.path.exists(link.path):
+                        # link is alive
+                        refcount = refcount + 1
+                    elif os.path.lexists(link.path):
+                        # dead link
+                        os.remove(link)
+
+            print(file.name + " " + str(refcount))
+            if refcount == 0:
+                # remove root and data file itself
+                os.rmdir(file.path)
+                os.system("chmod u+w {}".format(os.path.join(dstore, file.name)))
+                os.remove(os.path.join(dstore, file.name))
+                files_removed = files_removed + 1
+
+    # clear out files that do not have gc root
+    for file in os.scandir(dstore):
+        if file.is_file():
+            if not os.path.exists(os.path.join(dstore, "gcroots", file.name)):
+                os.system("chmod u+w {}".format(file.path))
+                os.remove(file.path)
+                files_removed = files_removed + 1
+
+    return files_removed
+
+
+def verify_store_path(dstore: str, path) -> bool:
+    """Verify hash of a store path
+    """
+
+def verify_store(dstore: str) -> bool:
+    """Verify all files in store
+    """
+    valid = True
+
+    for file in os.scandir(dstore):
+        if file.is_file():
+            if is_valid_name(file.name):
+                hash = hash_file("{}/{}".format(dstore, file.name))
+                if hash != file.name:
+                    print("Invalid file found: {} has hash {}".format(file.name, hash))
+                    valid = False
+            else:
+                print("Invalid filename {}".format(file.name))
+                valid = False
+
+    return valid
 
 def hash_from_store_path(path: str, dstore: str) -> str:
     """Extract file name (hash) from store path
@@ -69,6 +162,8 @@ def move_to_store(path: str, dstore: str) -> str:
     return sha256
 
 def import_data(data, dstore: str) -> str:
+    """Write data directly into store
+    """
     hash = hash_data(data)
 
     if not hash_exists(hash, dstore):

@@ -29,6 +29,8 @@ def cmd_build(cfgnix: str) -> int:
     ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
     return os.waitstatus_to_exitcode(ret)
 
+    # import config.nix
+
 def cmd_list(config) -> None:
     '''List all jobs in project
     '''
@@ -177,11 +179,18 @@ def main():
     argsShell.add_argument("job", help="Job to pick shell from.")
 
     argsExport = cmdArgs.add_parser("export", help="Export a finished project.")
-    argsExport.add_argument("target_dir", help="Traget directory. Must be empty.")
-    argsExport.add_argument("target_store", help="Traget data store directory.")
+    argsExport.add_argument("target_dir", help="Target directory. Must be empty.")
+    argsExport.add_argument("target_store", help="Target data store directory.")
 
     argsImport = cmdArgs.add_parser("import", help="Import files into data store manually.")
-    argsImport.add_argument("files", nargs='+', help="Files to import.")
+    argsImport.add_argument("file_name", help="File to import.")
+    argsImport.add_argument("link_name", help="Link name to create")
+
+    argsCheckCAS = cmdArgs.add_parser("check-store", help="Check if store entries are valid")
+    argsCheckCAS.add_argument("dstore", help="Path to data store")
+
+    argsGC = cmdArgs.add_parser("gc-store", help="garbage collect unlinked entries from data store")
+    argsGC.add_argument("dstore", help="Path to data store")
 
     args = argsMain.parse_args()
 
@@ -225,7 +234,16 @@ def main():
         cmd_export(config, args.target_dir, args.target_store)
 
     elif args.command == "import":
-        cas.import_paths(args.file_names, config['dstore'])
+        paths = cas.import_paths([ args.file_name ], config['dstore'])
+        cas.link_to_store(args.link_name, paths[args.file_name], config['dstore'], gcroot = True)
+
+    elif args.command == "check-store":
+        if not cas.verify_store(args.dstore):
+            exit(1)
+
+    elif args.command == "gc-store":
+        n = cas.clean_garbage(args.dstore)
+        print("Removed {} files from data store".format(n))
 
 
     exit(0)
