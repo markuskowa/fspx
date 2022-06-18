@@ -87,9 +87,15 @@ def clean_garbage(dstore: str) -> int:
                     # it is a symlink
                     if os.path.exists(link.path):
                         # link is alive
-                        refcount = refcount + 1
+                        if os.path.basename(os.path.realpath(link.path)) == file.name:
+                            # link points back to this hash/file
+                            refcount = refcount + 1
+                        else:
+                            # gc-root link is dead, does not point back to itself
+                            os.remove(link)
+
                     elif os.path.lexists(link.path):
-                        # dead link
+                        # dead link, link does not exists anymore
                         os.remove(link)
 
             print(file.name + " " + str(refcount))
