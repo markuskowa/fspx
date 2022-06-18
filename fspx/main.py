@@ -63,7 +63,7 @@ def cmd_shell(config, jobname: str, dstore: str) -> None:
     # Import inputs
     print("Import and link inputs...")
     inputs = fspx.import_input_paths(job, jobname, dstore)
-    fspx.link_inputs_to_workdir(inputs, workdir, dstore)
+    fspx.link_inputs_to_dir(inputs, workdir, dstore)
 
     print("Run nix-shell...")
     os.system("cd {0}; nix-shell -p {1}".format(workdir, job['env']))
