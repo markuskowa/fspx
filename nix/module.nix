@@ -40,7 +40,7 @@ let
       };
 
       env = mkOption {
-        type = with types; package;
+        type = with types; oneOf [ (listOf package) package ];
         description = ''
           Compute environment. A package or nix store path, providing and environment for a job.
           Changing the environment will cause recalculation the job.
@@ -153,14 +153,21 @@ in {
     outPath = let
       fixJobsets = mapAttrs (name: job:
 	  job // {
-	    runScript = nixShell job;
+	    runScript = nixShell name job;
 	  } // optionalAttrs (job.workdir == null) {
 	    workdir = cfg.workdir + "/" + name;
 	  });
 
-      nixShell = job: pkgs.writeScript "nixShell" ''
+      nixShell = name: job: pkgs.writeScript "nixShell" ''
         #!/usr/bin/env nix-shell
-        #!nix-shell -i bash -p ${job.env}
+        #!nix-shell -i bash -p ${
+          if isList job.env
+            then pkgs.buildEnv {
+              inherit name;
+              paths = job.env;
+            }
+          else job.env
+        }
 
         cd "$1"
         if [ -z "$2" ]; then
