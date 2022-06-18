@@ -152,22 +152,21 @@ in {
     # Make sure all outputs have unique names
     outPath = let
       fixJobsets = mapAttrs (name: job:
-	  job // {
-	    runScript = nixShell name job;
-	  } // optionalAttrs (job.workdir == null) {
-	    workdir = cfg.workdir + "/" + name;
-	  });
-
-      nixShell = name: job: pkgs.writeScript "nixShell" ''
-        #!/usr/bin/env nix-shell
-        #!nix-shell -i bash -p ${
-          if isList job.env
+	  job // rec {
+      env = if isList job.env
             then pkgs.buildEnv {
               inherit name;
               paths = job.env;
             }
-          else job.env
-        }
+          else job.env;
+	    runScript = nixShell name job env;
+	  } // optionalAttrs (job.workdir == null) {
+	    workdir = cfg.workdir + "/" + name;
+	  });
+
+      nixShell = name: job: env: pkgs.writeScript "nixShell" ''
+        #!/usr/bin/env nix-shell
+        #!nix-shell -i bash -p ${env}
 
         cd "$1"
         if [ -z "$2" ]; then
