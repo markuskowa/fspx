@@ -214,6 +214,18 @@ def main():
         ret = cmd_build(args.config_file)
         exit(ret)
 
+    elif args.command == "store-check":
+        if not cas.verify_store(args.dstore):
+            exit(1)
+
+        print("Store in {} is OK.".format(args.dstore))
+        exit(0)
+
+    elif args.command == "store-gc":
+        n = cas.clean_garbage(args.dstore)
+        print("Removed {} files from data store".format(n))
+        exit(0)
+
     # Read the config. Every command from here on will need it
     config = utils.read_json("{}/cfg/project.json".format(cfgPath))
 
@@ -244,14 +256,6 @@ def main():
     elif args.command == "store-import":
         paths = cas.import_paths([ args.file_name ], config['dstore'])
         cas.link_to_store(args.link_name, paths[args.file_name], config['dstore'], gcroot = True)
-
-    elif args.command == "store-check":
-        if not cas.verify_store(args.dstore):
-            exit(1)
-
-    elif args.command == "store-gc":
-        n = cas.clean_garbage(args.dstore)
-        print("Removed {} files from data store".format(n))
 
 
     exit(0)
