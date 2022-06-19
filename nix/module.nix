@@ -112,6 +112,12 @@ let
 
 in {
   options = {
+    nixpkgs = mkOption {
+      type = types.attrs;
+      description = "nixpkgs";
+      default = import <nixpkgs> {};
+    };
+
     workdir = mkOption {
       type = types.str;
       description = ''
@@ -141,11 +147,17 @@ in {
 
     outPath = mkOption {
       internal = true;
+      readOnly = true;
       type = types.package;
     };
   };
 
   config = {
+    _module.args = {
+      pkgs = cfg.nixpkgs;
+      lib = cfg.nixpkgs.lib;
+    };
+
     # Create a flat list of all jobs
     # Create a JSON file for the project
     # Make sure job IDs/names are unique
@@ -177,7 +189,7 @@ in {
         $launcher ${job.jobScript}
       '';
 
-      project = builtins.removeAttrs (config // { jobsets = fixJobsets config.jobsets; }) [ "outPath" "_module"];
+      project = builtins.removeAttrs (config // { jobsets = fixJobsets config.jobsets; }) [ "outPath" "_module" "nixpkgs" ];
 
       allOutputs = let
         collectOutputs = x: flatten (mapAttrsToList (name: job: job.outputs ) x);

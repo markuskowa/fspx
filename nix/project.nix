@@ -2,15 +2,19 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 
-{ pkgs ? import <nixpkgs> { }
-, config
-}:
+{ config }:
 
 let
-  cfg = (pkgs.lib.evalModules {
-    modules = [ ./module.nix config ];
-    args = { inherit pkgs; inherit (pkgs) lib; };
-  }).config;
+  pkgs = config.nixpkgs or import <nixpkgs> {};
+  inherit (pkgs) lib;
+
+  evaluatedModule = lib.evalModules {
+    modules = [
+      ./module.nix
+      config
+    ];
+  };
+
 in
-  cfg.outPath
+  evaluatedModule.config.outPath
 
