@@ -22,6 +22,10 @@ def cmd_build(cfgnix: str) -> int:
     '''Build the project configuration from nix configuration file
     '''
 
+    if not os.path.exists(cfgPath):
+        raise Exception("Build needs to be called from the top level directory of the project.\nRun 'fspx init' before first use.")
+
+
     print("Build {}".format(cfgnix))
     if not cfgnix[0] in ['.', '/']:
         cfgnix = "./" + cfgnix
@@ -128,7 +132,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 def cmd_init() -> None:
 
     # create directories
-    dirs = [ 'inputs', 'src' ];
+    dirs = [ 'inputs', 'src', '.fspx'];
 
     for d in dirs:
         try:
