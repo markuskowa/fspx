@@ -22,7 +22,10 @@ def cmd_build(cfgnix: str) -> int:
     '''Build the project configuration from nix configuration file
     '''
 
-    print("Build it")
+    print("Build {}".format(cfgnix))
+    if not cfgnix[0] in ['.', '/']:
+        cfgnix = "./" + cfgnix
+
     try:
         os.mkdir(cfgPath)
     except FileExistsError:
@@ -30,7 +33,6 @@ def cmd_build(cfgnix: str) -> int:
     ret = os.system("nix-build {}/project.nix --arg config {} --out-link {}/cfg --show-trace".format(instDir, cfgnix, cfgPath))
     return os.waitstatus_to_exitcode(ret)
 
-    # import config.nix
 
 def cmd_list(config) -> None:
     '''List all jobs in project
@@ -167,7 +169,7 @@ def main():
     cmdArgs.add_parser("init", help="Setup directories and templates.")
 
     argsBuild = cmdArgs.add_parser("build", help="Build the project description from Nix config file.")
-    argsBuild.add_argument("config_file", type=str, help="Project configuration.")
+    argsBuild.add_argument("config_file", nargs='?', default = './config.nix', help="Project configuration file.")
 
     cmdArgs.add_parser("list", help="List job names.")
 
