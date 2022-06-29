@@ -88,6 +88,8 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 
     # Remove workdir (not needed in archive)
     config.pop("workdir")
+    # Are not needed, can be recalculated, when needed.
+    config.pop("deps")
 
     # Copy inputs and outputs to archive
     print("Copying files to archive...")
@@ -108,7 +110,7 @@ def cmd_export(config, toDir: str, targetStore: str) -> None:
 
     cas.link_to_store(
             os.path.join(toDir, "config.json"),
-            cas.import_data(json.dumps(config).encode(), targetStore),
+            cas.import_data(json.dumps(config, indent=2).encode(), targetStore),
             targetStore,
             gcroot = True)
 

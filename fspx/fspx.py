@@ -285,7 +285,7 @@ def run_jobs(jobset, jobnames: list[str], dstore: str, global_launcher=None) -> 
         import_outputs(job, name, dstore)
 
 def package_job(name: str, job):
-    '''Re-write jon definition for export/archival
+    '''Re-write json definition for export/archival
     '''
 
     manifest = read_manifest(name)
@@ -293,8 +293,13 @@ def package_job(name: str, job):
     # fix inputs
     inputs = {}
     for file, hash in job['inputs'].items():
+        # fix hash
         if hash == None:
             hash = manifest['inputs'][file]
+        # fix filename
+        if file[0] != ':':
+            file = os.path.join('inputs', os.path.basename(file))
+
         inputs[file] = hash
 
     job['inputs'] = inputs
